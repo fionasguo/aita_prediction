@@ -1,3 +1,6 @@
+import os
+# local_rank = int(os.environ["LOCAL_RANK"])
+
 import argparse
 
 import pandas as pd
@@ -11,8 +14,9 @@ from transformers import AutoModelForSequenceClassification, Trainer, TrainingAr
 
 from sklearn.metrics import classification_report
 
-MODEL = 'allenai/longformer-base-4096'
-DATADIR = ''
+# MODEL = 'allenai/longformer-base-4096'
+MODEL = 'bert-base-uncased'
+DATADIR = '/nas/home/siyiguo/aita_prediction/data/fiona-aita-verdicts.csv'
 
 
 if __name__ == '__main__':
@@ -20,16 +24,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='AITA Classifier.')
 
     parser.add_argument('-m','--mode', type=str, default='concat_text', help='choose from concat_text, concat_embeddings, add_embeddings')
-    parser.add_argument('-o','--output_dir', type=str, default='./aita_output', help='output dir to be written')
+    parser.add_argument('-o','--output_dir', type=str, default='./output', help='output dir to be written')
     parser.add_argument('-l','--lr', type=float, default=0.00002, help='learning rate')
     parser.add_argument('-e','--num_epoch', type=int, default=20, help='number of epochs to train for')
-    parser.add_argument('-b','--batch_size', type=int, default=128, help='mini-batch size')
+    parser.add_argument('-b','--batch_size', type=int, default=16, help='mini-batch size')
     parser.add_argument('-s','--seed', type=int, default=3, help='random seed')
 
     args = parser.parse_args()
 
     ## process data
-    print('Start processin data...')
+    print('Start processing data...')
     train_dataset, val_dataset, test_dataset = load_data(DATADIR,args.mode,args.seed)
 
     ## Training
@@ -47,10 +51,11 @@ if __name__ == '__main__':
         evaluation_strategy='steps',
         eval_steps=100,
         load_best_model_at_end=True,              # load or not best model at the end
+        seed = args.seed
     )
 
     num_labels = 4
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL, num_labels=num_labels,local_files_only=True)
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL, num_labels=num_labels)
 
     trainer = Trainer(
         model=model,                              # the instantiated Transformers model to be trained
@@ -68,12 +73,19 @@ if __name__ == '__main__':
     ## Test
     test_preds_raw, test_labels , _ = trainer.predict(test_dataset)
     test_preds = np.argmax(test_preds_raw, axis=-1)
-    report = classification_report(test_labels, test_preds, digits=3)
-    print(report)
+
+    # pred with top and rand comment
+    top_com_len = len(test_labels)//2
+    report_top = classification_report(test_labels[:top_com_len], test_preds[:top_com_len], digits=3)
+    print('preds with top comment')
+    print(report_top)
+    report_rand = classification_report(test_labels[top_com_len:], test_preds[top_com_len:], digits=3)
+    print('preds with random comment')
+    print(report_rand)
 
     with open(args.output_dir+'/test_preds.txt','w+') as f:
         for i in test_preds:
             f.write(i+'\n')
 
-    with open(args.output_dir+'/classification_report.txt','w+') as f:
-        f.write(report)
+    # with open(args.output_dir+'/classification_report.txt','w+') as f:
+    #     f.write(report)

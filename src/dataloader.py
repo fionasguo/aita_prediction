@@ -5,53 +5,61 @@ from preprocessing import preprocess_text
 from transformers import AutoTokenizer
 
 
-MODEL = 'allenai/longformer-base-4096'
+#MODEL = 'allenai/longformer-base-512'
+MODEL = 'bert-base-uncased'
 
-def gen_encodings_labels(train, test, mode='concat_text'):
-    tokenizer = AutoTokenizer.from_pretrained(MODEL, use_fast=True,local_files_only=True)
+def gen_encodings_labels(train, val, test, mode='concat_text'):
+    tokenizer = AutoTokenizer.from_pretrained(MODEL) #, local_files_only=True
 
+    train_dict = {}
+    val_dict = {}
+    test_dict = {}
     if mode == 'concat_text':
-        train['encodings1'] = tokenizer(train.apply(lambda x: x['top_comment']+x['story'],axis=0).tolist(), truncation=True, max_length=4096, padding="max_length")
-        train['encodings2'] = np.nan
-        train['label'] = train['top_verdict']
+        train_dict['encodings1'] = tokenizer(train.apply(lambda x: x['top_comment']+x['story'],axis=1).tolist(), truncation=True, max_length=512, padding="max_length")
+        train_dict['encodings2'] = np.nan
+        train_dict['label'] = train['top_verdict'].tolist()
+
+        val_dict['encodings1'] = tokenizer(val.apply(lambda x: x['top_comment']+x['story'],axis=1).tolist(), truncation=True, max_length=512, padding="max_length")
+        val_dict['encodings2'] = np.nan
+        val_dict['label'] = val['top_verdict'].tolist()
         
-        test1,test2 = pd.DataFrame(),pd.DataFrame()
-        test1['encodings1'] = tokenizer(test.apply(lambda x: x['top_comment']+x['story'],axis=0).tolist(), truncation=True, max_length=4096, padding="max_length")
-        test1['encodings2'] = np.nan
-        test1['label'] = test['top_verdict']
-        test2['encodings1'] = tokenizer(test.apply(lambda x: x['rand_comment']+x['story'],axis=0).tolist(), truncation=True, max_length=4096, padding="max_length")
-        test2['encodings2'] = np.nan
-        test2['label'] = test['rand_verdict']
+        test1 = test.apply(lambda x: x['top_comment']+x['story'],axis=1).tolist()
+        test2 = test.apply(lambda x: x['rand_comment']+x['story'],axis=1).tolist()
+        test1.extend(test2)
+        test_dict['encodings1'] = tokenizer(test1, truncation=True, max_length=512, padding="max_length")
+        test_dict['encodings2'] = np.nan
+        test_dict['label'] = test['top_verdict'].tolist() + test['rand_verdict'].tolist()
 
     elif mode == 'concat_embeddings':
-        train['encodings1'] = tokenizer(train['top_comment'].tolist(),train['story'].tolist(), truncation=True, max_length=4096, padding="max_length")
-        train['encodings2'] = np.nan
-        train['label'] = train['top_verdict']
+        train_dict['encodings1'] = tokenizer(train['top_comment'].tolist(),train['story'].tolist(), truncation=True, max_length=512, padding="max_length")
+        train_dict['encodings2'] = np.nan
+        train_dict['label'] = train['top_verdict'].tolist()
 
-        test1,test2 = pd.DataFrame(),pd.DataFrame()
-        test1['encodings1'] = tokenizer(test['top_comment'].tolist(),test['story'].tolist(), truncation=True, max_length=4096, padding="max_length")
-        test1['encodings2'] = np.nan
-        test1['label'] = test['top_verdict']
-        test2['encodings1'] = tokenizer(test['rand_comment'].tolist(),test['story'].tolist(), truncation=True, max_length=4096, padding="max_length")
-        test2['encodings2'] = np.nan
-        test2['label'] = test['rand_verdict']
+        val_dict['encodings1'] = tokenizer(val['top_comment'].tolist(),val['story'].tolist(), truncation=True, max_length=512, padding="max_length")
+        val_dict['encodings2'] = np.nan
+        val_dict['label'] = val['top_verdict'].tolist()
+
+        test_comment = test['top_comment'].tolist() + test['rand_comment'].tolist()
+        test_story = test['story'].tolist() + test['story'].tolist()
+        test_dict['encodings1'] = tokenizer(test_comment,test_story, truncation=True, max_length=512, padding="max_length")
+        test_dict['encodings2'] = np.nan
+        test_dict['label'] = test['top_verdict'].tolist() + test['rand_verdict'].tolist()
 
     elif mode == 'add_embeddings':
-        train['encodings1'] = tokenizer(train['top_comment'].tolist(), truncation=True, max_length=4096, padding="max_length")
-        train['encodings2'] = tokenizer(train['story'].tolist(), truncation=True, max_length=4096, padding="max_length")
+        # TODO: change this
+        train['encodings1'] = tokenizer(train['top_comment'].tolist(), truncation=True, max_length=512, padding="max_length")
+        train['encodings2'] = tokenizer(train['story'].tolist(), truncation=True, max_length=512, padding="max_length")
         train['label'] = train['top_verdict']
 
         test1,test2 = pd.DataFrame(),pd.DataFrame()
-        test1['encodings1'] = tokenizer(test['top_comment'].tolist(), truncation=True, max_length=4096, padding="max_length")
-        test1['encodings2'] = tokenizer(test['story'].tolist(), truncation=True, max_length=4096, padding="max_length")
+        test1['encodings1'] = tokenizer(test['top_comment'].tolist(), truncation=True, max_length=512, padding="max_length")
+        test1['encodings2'] = tokenizer(test['story'].tolist(), truncation=True, max_length=512, padding="max_length")
         test1['label'] = test['top_verdict']
-        test2['encodings1'] = tokenizer(test['rand_comment'].tolist(), truncation=True, max_length=4096, padding="max_length")
-        test2['encodings2'] = tokenizer(test['story'].tolist(), truncation=True, max_length=4096, padding="max_length")
+        test2['encodings1'] = tokenizer(test['rand_comment'].tolist(), truncation=True, max_length=512, padding="max_length")
+        test2['encodings2'] = tokenizer(test['story'].tolist(), truncation=True, max_length=512, padding="max_length")
         test2['label'] = test['rand_verdict']
 
-    test = pd.concat([test1,test2],axis=0)
-
-    return train,test
+    return train_dict,val_dict,test_dict
 
 def load_data(data_dir,mode='concat_text',seed=3):
     df = pd.read_csv(data_dir)
@@ -69,11 +77,14 @@ def load_data(data_dir,mode='concat_text',seed=3):
     # take out 80% posts first and train with top comment, and for 20% test set I will treat top and random comments as separate data points and shuffle everything
     train = df.sample(frac=0.8,random_state=seed)
     test = df.drop(train.index)
-
-    # process texts and labels based on mode
-    train,test = gen_encodings_labels(train, test, mode=mode)
     val = train.sample(frac=0.2,random_state=seed)
     train = train.drop(val.index)
+
+    # process texts and labels based on mode
+    train, val, test = gen_encodings_labels(train, val, test, mode=mode)
+    print(train.keys())
+    print(train['encodings1'].keys())
+    print(len(train['encodings1']['input_ids']),len(train['encodings1']['input_ids'][0]))
 
     # create dataset objects
     datasets = []
