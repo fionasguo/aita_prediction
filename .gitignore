@@ -1,5 +1,6 @@
 /.DS_Store
 /.python-version
-/data
 /papers
 *.out
+*/checkpoint-*
+*__pycache__*
