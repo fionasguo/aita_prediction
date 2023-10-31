@@ -17,4 +17,4 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home1/siyiguo/anaconda3/lib
 ##python src/outcome_predictor/outcome_predictor.py --mode concat_embeddings --output_dir tmp -b 32
 
 # python src/outcome_predictor/outcome_predictor.py --mode concat_embeddings --output_dir /home1/siyiguo/aita_prediction/outcome_predictor_concat_embeddings_output -b 32
-python src/propensity_predictor/propensity_predictor.py --mode concat_embeddings --output_dir propensity_predictor_concat_embeddings_output -b 32
+python src/propensity_predictor/propensity_predictor.py --mode concat_embeddings --output_dir propensity_predictor_concat_embeddings_output -b 64

@@ -1,5 +1,9 @@
 """
-Given comment and story, predict if comment is a top comment or a random comment.
+Predict the causal effect using doubly robust: 
+
+input: story+comment
+output: effect estimated by doubly robust
+loss: L2
 """
 
 import os
