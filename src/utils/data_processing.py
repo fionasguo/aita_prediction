@@ -12,7 +12,7 @@ def load_text_data(data_dir,mode='concat_text'):
     """
     load from csv and preprocess
     """
-    df = pd.read_csv(data_dir)
+    df = pd.read_csv(data_dir,lineterminator='\n')
 
     # df = df.drop(['Unnamed: 0.1','Unnamed: 0'],axis=1)
     df = df[df['top_verdict']!=-1]
@@ -91,7 +91,7 @@ def data_loader(df, mode='concat_text'):
 
     elif mode == 'concat_embeddings':
         encodings = tokenizer(df['comment'].tolist(),df['story'].tolist(), truncation=True, max_length=512, padding="max_length")
-        label = df['label'].tolist()
+        labels = df['label'].tolist()
 
     dataset = AITAData(encodings, labels)
 
