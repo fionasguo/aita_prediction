@@ -4,3 +4,4 @@
 *.out
 */checkpoint-*
 *__pycache__*
+*DS_Store*
