@@ -5,6 +5,7 @@ Given comment and story, predict AITA.
 import os
 # local_rank = int(os.environ["LOCAL_RANK"])
 import argparse
+import logging
 import pandas as pd
 import numpy as np
 import torch
@@ -13,15 +14,16 @@ from transformers import AutoModelForSequenceClassification, Trainer, TrainingAr
 from sklearn.metrics import classification_report
 
 from utils.data_processing import *
+from utils.utils import create_logger
 
-# MODEL = 'allenai/longformer-base-4096'
+
 MODEL = 'bert-base-uncased'
-# DATADIR = '/home1/siyiguo/aita_prediction/data/fiona-aita-verdicts.csv'
-DATADIR = 'data/test.csv'
+DATADIR = '/nas/home/siyiguo/aita_prediction/data/fiona-aita-verdicts.csv'
+# DATADIR = 'data/test.csv'
 
 def train_outcome_predictor(args, train_dataset, val_dataset):
 
-    print('Start training...')
+    logging.info('Start training outcome predictor...')
 
     training_args = TrainingArguments(
         output_dir=args.output_dir,                        # output directory
@@ -32,13 +34,13 @@ def train_outcome_predictor(args, train_dataset, val_dataset):
         warmup_steps=100,                         # number of warmup steps for learning rate scheduler
         weight_decay=0.01,                        # strength of weight decay
         logging_dir=args.output_dir+'/logs',                     # directory for storing logs
-        logging_steps=100,                         # when to print log
+        logging_steps=500,                         # when to logging.info log
         evaluation_strategy='steps',
-        eval_steps=100,
+        eval_steps=500,
         load_best_model_at_end=True,              # load or not best model at the end
         seed = args.seed,
-        save_steps = 1000,
-        save_total_limit = 5,
+        save_steps = 5000,
+        save_total_limit = 3,
         disable_tqdm=True
     )
 
@@ -56,30 +58,31 @@ def train_outcome_predictor(args, train_dataset, val_dataset):
 
     trainer.save_model(f"./{args.output_dir}/best_outcome_model")
 
-    print('Finished training.')
+    logging.info('Finished training outcome predictor.')
 
     return trainer
 
 
-def test_outcome_predictor(trainer,test_dataset,save_preds=False):
+def test_outcome_predictor(trainer,args,test_dataset,save_preds=False):
     test_preds_raw, test_labels , _ = trainer.predict(test_dataset)
-    test_preds = np.argmax(test_preds_raw, axis=-1)
+    test_preds_softmax = torch.nn.functional.softmax(torch.tensor(test_preds_raw)).numpy()
+    test_preds = np.argmax(test_preds_softmax, axis=-1)
 
     # pred with top and rand comment
     top_com_len = len(test_labels)//2
     report_top = classification_report(test_labels[:top_com_len], test_preds[:top_com_len], digits=3)
-    print('preds with top comment')
-    print(report_top)
+    logging.info('preds with top comment')
+    logging.info(report_top)
     report_rand = classification_report(test_labels[top_com_len:], test_preds[top_com_len:], digits=3)
-    print('preds with random comment')
-    print(report_rand)
+    logging.info('preds with random comment')
+    logging.info(report_rand)
 
     if save_preds:
         with open(args.output_dir+'/outcome_preds.txt','w+') as f:
             for i in test_preds:
                 f.write(str(i)+'\n')
     
-    return test_preds_raw # return softmax vector len=4
+    return test_preds_softmax # return softmax vector len=4
 
 if __name__ == '__main__':
     ## command args
@@ -94,20 +97,25 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    ## logger
+    create_logger()
+
     ## process data
-    print('Start processing data...')
-    df = load_text_data(DATADIR,args.mode)
+    logging.info('Start processing data...')
+    tokenizer = AutoTokenizer.from_pretrained(MODEL, local_files_only=True)
+    df = load_text_data(DATADIR)
     train_data, val_data, test_data = train_val_test_split(df,seed=args.seed)
     train_data, val_data, test_data = process_data_outcome_prediction(train_data,val_data,test_data)
-    train_dataset = data_loader(train_data, mode=args.mode)
-    val_dataset = data_loader(val_data, mode=args.mode)
-    test_dataset = data_loader(test_data, mode=args.mode)
+    
+    train_dataset = data_loader(train_data, tokenizer, mode=args.mode)
+    val_dataset = data_loader(val_data, tokenizer, mode=args.mode)
+    test_dataset = data_loader(test_data, tokenizer, mode=args.mode)
 
     ## Training
     trainer = train_outcome_predictor(args, train_dataset, val_dataset)
 
     ## Test
-    test_preds = test_outcome_predictor(trainer,test_dataset)
+    test_preds = test_outcome_predictor(trainer, args, test_dataset)
 
     # with open(args.output_dir+'/classification_report.txt','w+') as f:
     #     f.write(report)

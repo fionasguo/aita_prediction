@@ -58,8 +58,10 @@ def process_data_outcome_prediction(train,val,test):
 
 def process_data_propensity_prediction(train,val,test):
     def helper(df):
-        df = pd.concat([df[['top_comment','story']].rename(columns={'top_comment':'comment'}),test[['rand_comment','story']].rename(columns={'rand_comment':'comment'})],axis=0)
-        df = df['label'] = [1 for _ in range(len(df))] + [0 for _ in range(len(df))]
+        N = len(df)
+        df = pd.concat([df[['top_comment','story']].rename(columns={'top_comment':'comment'}),df[['rand_comment','story']].rename(columns={'rand_comment':'comment'})],axis=0)
+        df['label'] = [1 for _ in range(N)] + [0 for _ in range(N)]
+        df = df.reset_index(drop=True)
         return df
     
     return helper(train), helper(val), helper(test)
@@ -72,19 +74,17 @@ def process_data_effect_prediction(train,val,test):
     val = val[['top_comment','story','effect']]
     val = val.rename(columns={'top_comment':'comment','effect':'label'})
 
-    test = test[['top_comment','story']]
     # labels are one hot of length 4
     test['top_verdict_onehot'] = test['top_verdict'].apply(lambda x: [1 if x==i else 0 for i in range(4)])
     test['rand_verdict_onehot'] = test['rand_verdict'].apply(lambda x: [1 if x==i else 0 for i in range(4)])
     test['label'] = test.apply(lambda x: [t-r for t,r in zip(x['top_verdict_onehot'],x['rand_verdict_onehot'])],axis=1)
+    test = test[['top_comment','story','label']]
     test = test.rename(columns={'top_comment':'comment'})
 
     return train, val, test
 
 
-def data_loader(df, mode='concat_text'):
-    tokenizer = AutoTokenizer.from_pretrained(MODEL) #, local_files_only=True
-
+def data_loader(df, tokenizer, mode='concat_text'):
     if mode == 'concat_text':
         encodings = tokenizer(df.apply(lambda x: x['comment']+x['story'],axis=1).tolist(), truncation=True, max_length=512, padding="max_length")
         labels = df['label'].tolist()
