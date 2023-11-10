@@ -146,5 +146,7 @@ if __name__ == "__main__":
 
     trainer = train_effect_predictor(args,train_data,val_data)
     test_data_effects = test_effect_predictor(trainer,args,test_data)
+    test_data['effect_pred'] = test_data_effects.tolist()
+    test_data.to_csv(args.output_dir+'/test_data_prediction.csv',index=False)
 
     logging.info('Finished training effect predictor')

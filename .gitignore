@@ -2,6 +2,7 @@
 /.python-version
 /papers
 *.out
+*.log
 */checkpoint-*
 *__pycache__*
 *DS_Store*
