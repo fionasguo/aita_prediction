@@ -27,7 +27,7 @@ DATADIR = '/nas/home/siyiguo/aita_prediction/data/fiona-aita-verdicts.csv'
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
     # labels = labels.reshape(-1, 1)
-    
+
     mse = mean_squared_error(labels, logits)
     rmse = mean_squared_error(labels, logits, squared=False)
     mae = mean_absolute_error(labels, logits)
@@ -71,7 +71,7 @@ def train_effect_predictor(args, train_dataset, val_dataset):
 
     trainer.train()
 
-    trainer.save_model(f"./{args.output_dir}/best_model")
+    trainer.save_model(f"./{args.output_dir}/best_effect_model")
 
     logging.info(f'Finished training effect predictor. Time: {time.time()-start_time}')
 

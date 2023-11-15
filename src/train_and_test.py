@@ -24,8 +24,8 @@ from utils.utils import create_logger
 
 # MODEL = 'allenai/longformer-base-4096'
 MODEL = 'bert-base-uncased'
-# DATADIR = '/home1/siyiguo/aita_prediction/data/fiona-aita-verdicts.csv'
-DATADIR = 'data/test.csv'
+DATADIR = 'data/fiona-aita-verdicts.csv'
+# DATADIR = 'data/test.csv'
 
 
 if __name__ == "__main__":
@@ -137,16 +137,19 @@ if __name__ == "__main__":
     val_data = train_data.sample(frac=0.2,random_state=args.seed)
     train_data = train_data.drop(val_data.index)
 
-    train_data, val_data, test_data = process_data_effect_prediction(train_data,val_data,test_data)
-    train_data = data_loader(train_data, tokenizer, mode=args.mode)
-    val_data = data_loader(val_data, tokenizer, mode=args.mode)
-    test_data = data_loader(test_data, tokenizer, mode=args.mode)
+    train_dataset, val_dataset, test_dataset = process_data_effect_prediction(train_data,val_data,test_data)
+    train_dataset = data_loader(train_dataset, tokenizer, mode=args.mode)
+    val_dataset = data_loader(val_dataset, tokenizer, mode=args.mode)
+    test_dataset = data_loader(test_dataset, tokenizer, mode=args.mode)
 
     logging.info('training effect predictor')
 
-    trainer = train_effect_predictor(args,train_data,val_data)
-    test_data_effects = test_effect_predictor(trainer,args,test_data)
+    trainer = train_effect_predictor(args,train_dataset,val_dataset)
+    test_data_effects = test_effect_predictor(trainer,args,test_dataset[:len(test_dataset//2)]) # only predict on top com+story
     test_data['effect_pred'] = test_data_effects.tolist()
     test_data.to_csv(args.output_dir+'/test_data_prediction.csv',index=False)
 
     logging.info('Finished training effect predictor')
+
+    # effect predictor - only story
+    

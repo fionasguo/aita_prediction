@@ -2,8 +2,8 @@ import numpy as np
 import logging
 
 
-def kl_divergence(p, q):
-    return np.sum(np.where(p != 0, p * np.log(p / q), 0))
+# def kl_divergence(p, q):
+#     return np.sum(np.where(p != 0, p * np.log(p / q), 0))
 
 def doubly_robust(Y, outcome, propensity, treated):
     """
@@ -25,12 +25,11 @@ def doubly_robust(Y, outcome, propensity, treated):
     o0 = outcome[treated==0]
 
     logging.info(f"doubly robust size - p1: {p1.shape}, p0: {p0.shape}, o1: {o1.shape}, o0: {o0.shape}")
+    
+    # logging.info(f"kl divergence shape: {kl_div.shape}")
+    # logging.info(kl_div)
 
-    kl_div = kl_divergence(p0,p1)
-    logging.info(f"kl divergence shape: {kl_div.shape}")
-    logging.info(kl_div)
-
-    effects = (kl_div - 1) * (Y - o1) + (o1-o0)
+    effects = ((p1+(1-p0))/(p0+(1-p1)) - 1) * (Y - o1) + (o1-o0)
     logging.info(f"effects shape: {effects.shape}")
     
     return effects
