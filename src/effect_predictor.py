@@ -18,6 +18,7 @@ from transformers import AutoModelForSequenceClassification, Trainer, TrainingAr
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from utils.data_processing import *
+from evaluate import evaluate
 
 # MODEL = 'allenai/longformer-base-4096'
 MODEL = 'bert-base-uncased'
@@ -40,7 +41,7 @@ def train_effect_predictor(args, train_dataset, val_dataset):
     start_time = time.time()
 
     training_args = TrainingArguments(
-        output_dir=args.output_dir,                        # output directory
+        output_dir=args.output_dir+'/effect_model',                        # output directory
         num_train_epochs=args.num_epoch,                  # total number of training epochs
         per_device_train_batch_size=args.batch_size,       # batch size per device during training
         per_device_eval_batch_size=args.batch_size,        # batch size for evaluation
@@ -71,7 +72,7 @@ def train_effect_predictor(args, train_dataset, val_dataset):
 
     trainer.train()
 
-    trainer.save_model(f"./{args.output_dir}/best_effect_model")
+    trainer.save_model(f"./{args.output_dir}/effect_model/best_model")
 
     logging.info(f'Finished training effect predictor. Time: {time.time()-start_time}')
 
@@ -79,21 +80,21 @@ def train_effect_predictor(args, train_dataset, val_dataset):
 
 
 def test_effect_predictor(trainer, args, test_dataset, save_preds=False):
-    test_preds_raw, test_labels, _ = trainer.predict(test_dataset)
+    test_preds, test_labels, _ = trainer.predict(test_dataset)
     logging.info(f"effect predictor testing - test_preds_raw size: {test_preds_raw.shape}, test_preds_raw: {test_preds_raw[0]}, test_labels size: {test_labels.shape}, test_labels: {test_labels[0]}")
 
-    trainer.eval_dataset = test_dataset
-    trainer.evaluate()
+    # evalutate
+    logging.info(evaluate(test_labels,test_preds))
 
     if save_preds:
         with open(args.output_dir+'/effect_preds.txt','w+') as f:
-            for i in test_preds_raw:
+            for i in test_preds:
                 f.write(str(i)+'\n')
 
         # with open(args.output_dir+'/classification_report.txt','w+') as f:
         #     f.write(report)
     
-    return test_preds_raw
+    return test_preds
 
 # if __name__ == '__main__':
 #     ## command args

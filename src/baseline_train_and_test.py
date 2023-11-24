@@ -12,9 +12,9 @@ import numpy as np
 import logging
 import gc
 import torch
-from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from outcome_predictor import train_outcome_predictor,test_outcome_predictor
+from evaluate import evaluate
 from utils.data_processing import *
 from utils.utils import create_logger
 
@@ -23,14 +23,6 @@ from utils.utils import create_logger
 MODEL = 'bert-base-uncased'
 DATADIR = 'data/fiona-aita-verdicts.csv'
 # DATADIR = 'data/test.csv'
-
-
-def evaluate(labels, preds):
-    mse = mean_squared_error(labels, preds)
-    rmse = mean_squared_error(labels, preds, squared=False)
-    mae = mean_absolute_error(labels, preds)
-
-    return {"mse": mse, "rmse": rmse, "mae": mae}
 
 
 if __name__ == "__main__":

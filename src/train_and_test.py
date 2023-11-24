@@ -64,6 +64,8 @@ if __name__ == "__main__":
     logging.info(f"number of folds: {n_folds}, size of each fold: {N_fold}")
 
     for fold in range(n_folds):
+        logging.info(f"FOLD# {fold}")
+        # if fold < 4: continue
         # get train val test subsets
         if fold == n_folds-1: # last fold
             test_subset = train_data[N_fold*fold:]
@@ -86,8 +88,11 @@ if __name__ == "__main__":
 
         logging.info(f"fold outcome size: {fold_outcome.shape}")
 
-        train_data_outcome.append(fold_outcome)
-        treated.extend([1 for _ in range(len(fold_outcome)//2)] + [0 for _ in range(len(fold_outcome)//2)])
+        #train_data_outcome.append(fold_outcome)
+        train_data_outcome = np.vstack((train_data_outcome,fold_outcome))
+        treated = np.vstack((treated,np.array([1 for _ in range(len(fold_outcome)//2)] + [0 for _ in range(len(fold_outcome)//2)]).reshape(-1,1)))
+        np.savetxt('data/train_outcome.csv',train_data_outcome,delimiter=',')
+        np.savetxt('data/train_treated.csv',treated,delimiter=',')
 
         logging.info(f"binary treated var size: {len(treated)}")
 
@@ -108,7 +113,8 @@ if __name__ == "__main__":
 
         logging.info(f"fold propensity size: {fold_propensity.shape}")
 
-        train_data_propensity.append(fold_propensity)
+        train_data_propensity = np.vstack((train_data_propensity,fold_propensity))
+        np.savetxt('data/train_propensity_1.csv',train_data_propensity,delimiter=',')
 
         del trainer.model
         del trainer
@@ -138,14 +144,14 @@ if __name__ == "__main__":
     train_data = train_data.drop(val_data.index)
 
     train_dataset, val_dataset, test_dataset = process_data_effect_prediction(train_data,val_data,test_data)
-    train_dataset = data_loader(train_dataset, tokenizer, mode=args.mode)
-    val_dataset = data_loader(val_dataset, tokenizer, mode=args.mode)
-    test_dataset = data_loader(test_dataset, tokenizer, mode=args.mode)
+    train_dataset = data_loader(train_dataset, tokenizer, mode='story_only')
+    val_dataset = data_loader(val_dataset, tokenizer, mode='story_only')
+    test_dataset = data_loader(test_dataset, tokenizer, mode='story_only')
 
     logging.info('training effect predictor')
 
     trainer = train_effect_predictor(args,train_dataset,val_dataset)
-    test_data_effects = test_effect_predictor(trainer,args,test_dataset[:len(test_dataset//2)]) # only predict on top com+story
+    test_data_effects = test_effect_predictor(trainer,args,test_dataset)
     test_data['effect_pred'] = test_data_effects.tolist()
     test_data.to_csv(args.output_dir+'/test_data_prediction.csv',index=False)
 

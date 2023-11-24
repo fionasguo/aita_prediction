@@ -89,8 +89,12 @@ def data_loader(df, tokenizer, mode='concat_text'):
         encodings = tokenizer(df.apply(lambda x: x['comment']+x['story'],axis=1).tolist(), truncation=True, max_length=512, padding="max_length")
         labels = df['label'].tolist()
 
-    elif mode == 'concat_embeddings':
+    elif mode == 'concat_embedding':
         encodings = tokenizer(df['comment'].tolist(),df['story'].tolist(), truncation=True, max_length=512, padding="max_length")
+        labels = df['label'].tolist()
+    
+    elif mode == 'story_only':
+        encodings = tokenizer(df['story'].tolist(), truncation=True, max_length=512, padding="max_length")
         labels = df['label'].tolist()
 
     dataset = AITAData(encodings, labels)

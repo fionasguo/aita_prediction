@@ -26,7 +26,7 @@ def doubly_robust(Y, outcome, propensity, treated):
 
     logging.info(f"doubly robust size - p1: {p1.shape}, p0: {p0.shape}, o1: {o1.shape}, o0: {o0.shape}")
 
-    effects = ((p1+(1-p0))/(p0+(1-p1)) - 1) * (Y - o1) + (o1-o0)
+    effects = np.multiply(((p1[:,1]+(1-p1[:,0]))/(p0[:,0]+(1-p0[:,1])) - 1).reshape(-1,1), (Y - o1)) + (o1-o0)
     logging.info(f"effects shape: {effects.shape}")
     
     return effects

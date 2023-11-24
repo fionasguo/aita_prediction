@@ -28,7 +28,7 @@ def train_propensity_predictor(args, train_dataset, val_dataset):
     start_time = time.time()
 
     training_args = TrainingArguments(
-        output_dir=args.output_dir,                        # output directory
+        output_dir=args.output_dir+'/propensity_model',                        # output directory
         num_train_epochs=args.num_epoch,                  # total number of training epochs
         per_device_train_batch_size=args.batch_size,       # batch size per device during training
         per_device_eval_batch_size=args.batch_size,        # batch size for evaluation
@@ -58,7 +58,7 @@ def train_propensity_predictor(args, train_dataset, val_dataset):
 
     trainer.train()
 
-    trainer.save_model(f"./{args.output_dir}/best_propensity_model")
+    trainer.save_model(f"./{args.output_dir}/propensity_model/best_model")
 
     logging.info(f'Finished training propensity predictor. Time: {time.time()-start_time}')
 
