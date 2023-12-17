@@ -21,7 +21,7 @@ MODEL = 'bert-base-uncased'
 DATADIR = '/nas/home/siyiguo/aita_prediction/data/fiona-aita-verdicts.csv'
 # DATADIR = 'data/test.csv'
 
-def train_outcome_predictor(args, train_dataset, val_dataset):
+def train_bert_outcome_predictor(args, train_dataset, val_dataset):
 
     logging.info('Start training outcome predictor...')
 
@@ -63,7 +63,7 @@ def train_outcome_predictor(args, train_dataset, val_dataset):
     return trainer
 
 
-def test_outcome_predictor(trainer,args,test_dataset,save_preds=False):
+def test_bert_outcome_predictor(trainer,args,test_dataset,save_preds=False):
     test_preds_raw, test_labels , _ = trainer.predict(test_dataset)
     test_preds_softmax = torch.nn.functional.softmax(torch.tensor(test_preds_raw)).numpy()
     test_preds = np.argmax(test_preds_softmax, axis=-1)
@@ -112,10 +112,10 @@ if __name__ == '__main__':
     test_dataset = data_loader(test_data, tokenizer, mode=args.mode)
 
     ## Training
-    trainer = train_outcome_predictor(args, train_dataset, val_dataset)
+    trainer = train_bert_outcome_predictor(args, train_dataset, val_dataset)
 
     ## Test
-    test_preds = test_outcome_predictor(trainer, args, test_dataset)
+    test_preds = test_bert_outcome_predictor(trainer, args, test_dataset)
 
     # with open(args.output_dir+'/classification_report.txt','w+') as f:
     #     f.write(report)

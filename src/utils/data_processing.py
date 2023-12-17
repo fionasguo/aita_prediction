@@ -8,7 +8,7 @@ from .preprocessing import preprocess_text
 MODEL = 'bert-base-uncased'
 
 
-def load_text_data(data_dir,mode='concat_text'):
+def load_text_data(data_dir):
     """
     load from csv and preprocess
     """
@@ -44,7 +44,7 @@ def train_test_split(df,tr_frac=0.8,seed=3):
     return train, test
 
 
-def process_data_outcome_prediction(train,val,test):
+def process_data_bert_outcome_prediction(train,val,test):
     train = train[['top_comment','story','top_verdict']]
     train = train.rename(columns={'top_comment':'comment','top_verdict':'label'})
 

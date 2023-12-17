@@ -14,12 +14,8 @@ import logging
 import gc
 import torch
 
-from bert_outcome_predictor import train_bert_outcome_predictor,test_bert_outcome_predictor
-from DANN_outcome_predictor import train_DANN_outcome_predictor,test_DANN_outcome_predictor
 from propensity_predictor import train_propensity_predictor,test_propensity_predictor
-from effect_predictor import train_effect_predictor,test_effect_predictor
 from utils.data_processing import *
-from utils.doubly_robust import doubly_robust
 from utils.utils import create_logger
 
 
@@ -44,6 +40,8 @@ if __name__ == "__main__":
     # logger
     create_logger()
 
+    logging.info(args)
+
     # load and preprocessing text data
     tokenizer = AutoTokenizer.from_pretrained(MODEL, local_files_only=True)
     df = load_text_data(DATADIR)
@@ -53,9 +51,7 @@ if __name__ == "__main__":
 
     # on the training data, run 5-fold outcome & propensity train/inference
     # the results double in size because for each story there are top and random comments
-    train_data_outcome = []
-    train_data_propensity = []
-    treated = []
+    train_data_propensity = np.loadtxt('data/train_propensity.csv',delimiter=',')
 
     n_folds = 5
     train_data = train_data.sample(frac=1,random_state=args.seed) # shuffle
@@ -65,7 +61,7 @@ if __name__ == "__main__":
 
     for fold in range(n_folds):
         logging.info(f"FOLD# {fold}")
-        # if fold < 4: continue
+        if fold < 3: continue
         # get train val test subsets
         if fold == n_folds-1: # last fold
             test_subset = train_data[N_fold*fold:]
@@ -75,31 +71,6 @@ if __name__ == "__main__":
         logging.info(f"in fold, train size: {train_subset.shape}, test size: {test_subset.shape}")
         val_subset = train_subset.sample(frac=0.2,random_state=args.seed)
         train_subset = train_subset.drop(val_subset.index)
-
-        # outcome prediction - vanilla bert
-        tmp_tr, tmp_val, tmp_te = process_data_bert_outcome_prediction(train_subset,val_subset,test_subset)
-        logging.info(f'outcome data processed: tr: {tmp_tr.shape}, val: {tmp_val.shape}, te: {tmp_te.shape}')
-        tmp_tr_dataset = data_loader(tmp_tr, tokenizer, args.mode)
-        tmp_val_dataset = data_loader(tmp_val, tokenizer, args.mode)
-        tmp_te_dataset = data_loader(tmp_te, tokenizer, args.mode)
-
-        trainer = train_bert_outcome_predictor(args, tmp_tr_dataset, tmp_val_dataset)
-        fold_outcome = test_bert_outcome_predictor(trainer, args, tmp_te_dataset, save_preds=False)
-
-        logging.info(f"fold outcome size: {fold_outcome.shape}")
-
-        #train_data_outcome.append(fold_outcome)
-        train_data_outcome = np.vstack((train_data_outcome,fold_outcome))
-        treated = np.vstack((treated,np.array([1 for _ in range(len(fold_outcome)//2)] + [0 for _ in range(len(fold_outcome)//2)]).reshape(-1,1)))
-        np.savetxt('data/train_outcome.csv',train_data_outcome,delimiter=',')
-        np.savetxt('data/train_treated.csv',treated,delimiter=',')
-
-        logging.info(f"binary treated var size: {len(treated)}")
-
-        del trainer.model
-        del trainer
-        gc.collect()
-        torch.cuda.empty_cache()
 
         # propensity
         tmp_tr, tmp_val, tmp_te = process_data_propensity_prediction(train_subset,val_subset,test_subset)
@@ -120,41 +91,4 @@ if __name__ == "__main__":
         del trainer
         gc.collect()
         torch.cuda.empty_cache()
-
-    train_data_outcome = np.vstack(train_data_outcome) # N datapoints * 4 - softmax 4 different classes of verdicts
-    train_data_propensity = np.vstack(train_data_propensity) # N datapoints * 2 - softmax 2 classes top/rand for propensity
-    treated = np.array(treated)
-    logging.info(f"all train data - outcome size: {train_data_outcome.shape}, propensity: {train_data_propensity.shape}, binary treated var: {treated.shape}")
-
-    # effect using doubly robust 
-    Y = train_data['top_verdict'].apply(lambda x: [1 if x==i else 0 for i in range(4)]).tolist()
-    Y = np.array(Y)
-    logging.info(f"Y size: {Y.shape}")
-
-    np.savetxt('data/test_outcome.csv', train_data_outcome, delimiter=',')
-    np.savetxt('data/test_propensity.csv',train_data_propensity,delimiter=',')
-    np.savetxt('data/test_Y.csv',Y,delimiter=',')
-    np.savetxt('data/test_treated.csv',treated,delimiter=',')
-
-    train_data['effect'] = doubly_robust(Y, train_data_outcome, train_data_propensity, treated).tolist() # shape: N_train * 4
-    logging.info(f"added effects train data: {train_data.shape}")
-
-    # train the effect predictor
-    val_data = train_data.sample(frac=0.2,random_state=args.seed)
-    train_data = train_data.drop(val_data.index)
-
-    train_dataset, val_dataset, test_dataset = process_data_effect_prediction(train_data,val_data,test_data)
-    train_dataset = data_loader(train_dataset, tokenizer, mode='story_only')
-    val_dataset = data_loader(val_dataset, tokenizer, mode='story_only')
-    test_dataset = data_loader(test_dataset, tokenizer, mode='story_only')
-
-    logging.info('training effect predictor')
-
-    trainer = train_effect_predictor(args,train_dataset,val_dataset)
-    test_data_effects = test_effect_predictor(trainer,args,test_dataset)
-    test_data['effect_pred'] = test_data_effects.tolist()
-    test_data.to_csv(args.output_dir+'/test_data_prediction.csv',index=False)
-
-    logging.info('Finished training effect predictor')
-
     
