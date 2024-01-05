@@ -53,3 +53,5 @@ def count_devices():
         n_devices = 1
 
     return n_devices
+
+    

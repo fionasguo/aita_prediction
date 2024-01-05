@@ -2,6 +2,7 @@
 Trainer class for basic and domain adapt models
 """
 
+import os
 import numpy as np
 import math
 import logging
@@ -10,13 +11,16 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
+import torch.distributed as dist
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from DANN.data_processing.data_loader import MFData
 from .modules import ReconstructionLoss, TransformationLoss
 from .model import MFBasic, MFDomainAdapt
 from .evaluate import evaluate
 from DANN.utils.feature_analysis import compute_feat
-from DANN.utils.utils import get_gpu_memory_map, count_devices
+from DANN.utils.utils import get_gpu_memory_map, count_devices, setup_DDP
 
 
 class DomainAdaptTrainer:
@@ -36,6 +40,10 @@ class DomainAdaptTrainer:
         """
         self.datasets = datasets
         self.args = args
+        if self.args['device'] == 'cpu':
+            self.n_gpus = 1
+        else: 
+            self.n_gpus = torch.cuda.count_devices()
 
         # init model
         if self.args['domain_adapt']:
@@ -55,10 +63,17 @@ class DomainAdaptTrainer:
 
         self.model_embedding_dim = self.model.embedding_dim
 
-        # if torch.cuda.device_count() > 1:
-        self.model = torch.nn.DataParallel(self.model)
+    def setup_DDP(self,rank):
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '12355'
+        dist.init_process_group("nccl", rank=rank, world_size=self.n_gpus)
 
-        self.model = self.model.to(self.args['device'])
+        # if torch.cuda.device_count() > 1:
+        # self.model = torch.nn.DataParallel(self.model)
+
+        # DDP
+        self.model = self.model.to(rank)
+        self.model = DDP(self.model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
 
         for p in self.model.parameters():
             p.requires_grad = True
@@ -163,6 +178,16 @@ class DomainAdaptTrainer:
 
         return s_train_batch_size, t_train_batch_size
 
+    def prepare_Dataloader(self, dataset, rank, world_size, batch_size, pin_memory=False, num_workers=0):
+        def worker_init_fn(worker_id):
+            np.random.seed(np.random.get_state()[1][0] + worker_id)
+        
+        sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True, drop_last=True)
+        
+        dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=True, shuffle=True, sampler=sampler)
+        
+        return dataloader
+    
     def print_loss(self, loss):
         """Convert loss (if it's a tensor) to a scalar"""
         try:
@@ -253,27 +278,25 @@ class DomainAdaptTrainer:
 
     ########### train ###########
 
-    def train(self):
+    def train(self,rank):
         if self.args['semi_supervised']:
-            accu = self.train_semisupervised()
+            accu = self.train_semisupervised(rank)
         else:
-            accu = self.train_basic()
+            accu = self.train_basic(rank)
 
         return accu
 
-    def train_basic(self):
+    def train_basic(self,rank):
         # set up dataloader
-        # first set worker init fn
-        def worker_init_fn(worker_id):
-            np.random.seed(np.random.get_state()[1][0] + worker_id)
-
-        # init dataloader
-        self.train_dataloader = DataLoader(dataset=self.datasets['train'],
-                                           batch_size=self.args['batch_size'],
-                                           shuffle=True,
-                                           drop_last=True,
-                                           num_workers=4,
-                                           worker_init_fn=worker_init_fn)
+        # self.train_dataloader = DataLoader(dataset=self.datasets['train'],
+        #                                    batch_size=self.args['batch_size'],
+        #                                    shuffle=True,
+        #                                    drop_last=True,
+        #                                    num_workers=4,
+        #                                    worker_init_fn=worker_init_fn)
+        self.train_dataloader = self.prepare_Dataloader(self.datasets['train'], rank, self.n_gpus, self.args['batch_size'])
+        # set up model with DDP
+        self.setup_DDP(rank)
 
         # loss fn
         # self.loss_fn_mf = torch.nn.BCEWithLogitsLoss().to(self.args['device'])
@@ -295,6 +318,8 @@ class DomainAdaptTrainer:
         for epoch in range(self.args['n_epoch']):
 
             self.model.train()
+
+            self.train_dataloader.sampler.set_epoch(epoch)
 
             is_adv = False
             if self.args['domain_adapt']:
@@ -368,39 +393,40 @@ class DomainAdaptTrainer:
         )
         logging.info('Corresponding model was save in ' +
                      self.args['output_dir'] + '/best_model.pth')
+        
+        dist.destroy_process_group()
 
         return best_accu
 
-    def train_semisupervised(self):
+    def train_semisupervised(self,rank):
         """if training with semi-supervised method, we are surely doing domain adversarial training"""
         logging.info('training in semisupervised fashion')
         # set up dataloader
         # first calculate batch size for source and target domains
         s_train_batch_size, t_train_batch_size = self.compute_batch_size()
-
-        # set worker init fn
-
-        def worker_init_fn(worker_id):
-            np.random.seed(np.random.get_state()[1][0] + worker_id)
-
         # init dataloaders
         self.dataloaders = {}
-        self.dataloaders['s_train'] = DataLoader(
-            dataset=self.datasets['s_train'],
-            batch_size=s_train_batch_size,
-            shuffle=True,
-            drop_last=True,
-            num_workers=4,
-            worker_init_fn=worker_init_fn)
-        self.dataloaders['t_train'] = DataLoader(
-            dataset=self.datasets['t_train'],
-            batch_size=t_train_batch_size,
-            shuffle=True,
-            drop_last=True,
-            num_workers=4,
-            worker_init_fn=worker_init_fn)
+        # self.dataloaders['s_train'] = DataLoader(
+        #     dataset=self.datasets['s_train'],
+        #     batch_size=s_train_batch_size,
+        #     shuffle=True,
+        #     drop_last=True,
+        #     num_workers=4,
+        #     worker_init_fn=worker_init_fn)
+        # self.dataloaders['t_train'] = DataLoader(
+        #     dataset=self.datasets['t_train'],
+        #     batch_size=t_train_batch_size,
+        #     shuffle=True,
+        #     drop_last=True,
+        #     num_workers=4,
+        #     worker_init_fn=worker_init_fn)
+        self.dataloaders['s_train'] = self.prepare_Dataloader(self.datasets['s_train'], rank, self.n_gpus, s_train_batch_size)
+        self.dataloaders['t_train'] = self.prepare_Dataloader(self.datasets['t_train'], rank, self.n_gpus, t_train_batch_size)
         self.len_dataloader = min(len(self.dataloaders['s_train']),
                                   len(self.dataloaders['t_train']))
+        
+        # set up model with DDP
+        self.setup_DDP(rank)
 
         # loss fn
         if self.args['weighted_loss']:
@@ -430,6 +456,9 @@ class DomainAdaptTrainer:
         for epoch in range(self.args['n_epoch']):
 
             self.model.train()
+
+            self.dataloaders['s_train'].sampler.set_epoch(epoch)
+            self.dataloaders['t_train'].sampler.set_epoch(epoch)
 
             is_adv = (epoch >= self.args['num_no_adv'])
 
@@ -549,5 +578,7 @@ class DomainAdaptTrainer:
                      self.args['output_dir'] + '/best_model.pth')
 
         best_accu_return = best_accu_t if best_accu_t > 0.0 else best_accu_s
+
+        dist.destroy_process_group()
 
         return best_accu_return

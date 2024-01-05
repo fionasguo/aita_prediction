@@ -9,6 +9,7 @@ import logging
 import pandas as pd
 import numpy as np
 import torch
+import torch.multiprocessing as mp
 from transformers import AutoTokenizer
 from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments
 from sklearn.metrics import classification_report
@@ -150,7 +151,15 @@ def train_DANN_outcome_predictor(args, datasets):
     # set up trainer
     trainer = DomainAdaptTrainer(datasets, args)
 
-    trainer.train()
+    if args['device'] == 'cpu':
+        n_gpus = 1
+    else: 
+        n_gpus = torch.cuda.count_devices()
+
+    mp.spawn(
+        trainer.train,
+        nprocs=n_gpus
+    )
 
     logging.info(
         f"Finished training {args['train_domain']} data. Time: {time.time()-start_time}"
