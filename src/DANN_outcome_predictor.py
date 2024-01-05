@@ -31,8 +31,8 @@ from DANN import evaluate
 from DANN import set_seed
 
 
-# DATADIR = '/nas/eclairnas01/users/siyiguo/aita_prediction/data/fiona-aita-verdicts.csv'
-DATADIR = '/nas/eclairnas01/users/siyiguo/aita_prediction/data/test.csv'
+DATADIR = '/nas/eclairnas01/users/siyiguo/aita_prediction/data/fiona-aita-verdicts.csv'
+# DATADIR = '/nas/eclairnas01/users/siyiguo/aita_prediction/data/test.csv'
 MODEL = 'bert-base-uncased'
 tokenizer = AutoTokenizer.from_pretrained(MODEL, local_files_only=True)
 
@@ -63,7 +63,7 @@ def read_config(args,curr_dir):
     args['lambda_trans'] = 0.0
     args['lambda_rec'] = 0.5
     args['lambda_domain'] = 0.0
-    args['num_no_adv'] = 1
+    args['num_no_adv'] = 5
     args['gamma'] = 0.1
     args['device'] = "cuda:0" if torch.cuda.is_available() else "cpu"
     

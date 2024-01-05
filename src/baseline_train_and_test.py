@@ -23,12 +23,12 @@ from DANN import read_data
 
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 # MODEL = 'allenai/longformer-base-4096'
 MODEL = 'bert-base-uncased'
-# DATADIR = 'data/fiona-aita-verdicts.csv'
-DATADIR = 'data/test.csv'
+DATADIR = 'data/fiona-aita-verdicts.csv'
+# DATADIR = 'data/test.csv'
 
 
 if __name__ == "__main__":
