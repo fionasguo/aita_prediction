@@ -23,12 +23,12 @@ from DANN import read_data
 
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-# os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
 
 # MODEL = 'allenai/longformer-base-4096'
 MODEL = 'bert-base-uncased'
-DATADIR = 'data/fiona-aita-verdicts.csv'
-# DATADIR = 'data/test.csv'
+# DATADIR = 'data/fiona-aita-verdicts.csv'
+DATADIR = 'data/test.csv'
 
 
 if __name__ == "__main__":
@@ -44,6 +44,8 @@ if __name__ == "__main__":
     parser.add_argument('-s','--seed', type=int, default=3, help='random seed')
 
     args = parser.parse_args()
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
 
     # logger
     create_logger()
@@ -83,8 +85,8 @@ if __name__ == "__main__":
     outcome = test_DANN_outcome_predictor(trainer,vars(args),datasets,save_preds=False)
 
     # effect
-    top_com_outcome = outcome[:len(outcome)//2,:]
-    rand_com_outcome = outcome[len(outcome)//2,:]
+    top_com_outcome = np.array(outcome[:len(outcome)//2])
+    rand_com_outcome = np.array(outcome[len(outcome)//2:])
     logging.info(f"outcome size: top comment: {top_com_outcome.shape}, rand comment: {rand_com_outcome.shape}")
 
     test_data_effects = top_com_outcome - rand_com_outcome
