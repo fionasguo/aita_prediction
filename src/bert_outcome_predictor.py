@@ -27,7 +27,7 @@ def train_bert_outcome_predictor(args, train_dataset, val_dataset):
 
     training_args = TrainingArguments(
         output_dir=args.output_dir+'/outcome_model',                        # output directory
-        num_train_epochs=args.num_epoch,                  # total number of training epochs
+        num_train_epochs=args.n_epoch,                  # total number of training epochs
         per_device_train_batch_size=args.batch_size,       # batch size per device during training
         per_device_eval_batch_size=args.batch_size,        # batch size for evaluation
         learning_rate=args.lr,                      # learning rate
@@ -56,7 +56,7 @@ def train_bert_outcome_predictor(args, train_dataset, val_dataset):
 
     trainer.train()
 
-    trainer.save_model(f"./{args.output_dir}/outcome_model/best_model")
+    trainer.save_model(f"{args.output_dir}/outcome_model/best_model")
 
     logging.info('Finished training outcome predictor.')
 
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     parser.add_argument('-m','--mode', type=str, default='concat_text', help='choose from concat_text, concat_embeddings, add_embeddings')
     parser.add_argument('-o','--output_dir', type=str, default='./output', help='output dir to be written')
     parser.add_argument('-l','--lr', type=float, default=0.00002, help='learning rate')
-    parser.add_argument('-e','--num_epoch', type=int, default=20, help='number of epochs to train for')
+    parser.add_argument('-e','--n_epoch', type=int, default=20, help='number of epochs to train for')
     parser.add_argument('-b','--batch_size', type=int, default=128, help='mini-batch size')
     parser.add_argument('-s','--seed', type=int, default=3, help='random seed')
 

@@ -9,7 +9,7 @@ def create_logger():
         logfilename = datetime.now().strftime("%Y%m%d%H%M%S")
     logging.basicConfig(filename=logfilename + '.log',
                         format="%(message)s",
-                        level=logging.DEBUG)
+                        level=logging.INFO)
     logging.getLogger('matplotlib.font_manager').disabled = True
 
 

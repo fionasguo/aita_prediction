@@ -23,7 +23,7 @@ from DANN import read_data
 
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+# os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
 
 # MODEL = 'allenai/longformer-base-4096'
 MODEL = 'bert-base-uncased'
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('-o','--output_dir', type=str, default='./output', help='output dir to be written')
     parser.add_argument('-c','--config_dir', type=str, default=None, help='path to the config file')
     parser.add_argument('-l','--lr', type=float, default=0.00002, help='learning rate')
-    parser.add_argument('-e','--n_epoch', type=int, default=40, help='number of epochs to train for')
+    parser.add_argument('-e','--n_epoch', type=int, default=20, help='number of epochs to train for')
     parser.add_argument('-b','--batch_size', type=int, default=48, help='mini-batch size')
     parser.add_argument('-s','--seed', type=int, default=3, help='random seed')
 
@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
     test_data_effects = top_com_outcome - rand_com_outcome
     test_data['effect_pred'] = test_data_effects.tolist()
-    test_data.to_csv(args.output_dir+'/test_data_DANN_prediction.csv',index=False)
+    test_data.to_csv(args.output_dir+'/test_data_prediction.csv',index=False)
 
     # evaluate
     test_data['top_verdict_onehot'] = test_data['top_verdict'].apply(lambda x: [1 if x==i else 0 for i in range(4)])
@@ -101,3 +101,4 @@ if __name__ == "__main__":
     logging.info(evaluate(np.array(gt.tolist()),test_data_effects))
 
     logging.info('Finished effect prediction')
+    

@@ -72,7 +72,7 @@ def train_effect_predictor(args, train_dataset, val_dataset):
 
     trainer.train()
 
-    trainer.save_model(f"./{args.output_dir}/effect_model/best_model")
+    trainer.save_model(f"{args.output_dir}/effect_model/best_model")
 
     logging.info(f'Finished training effect predictor. Time: {time.time()-start_time}')
 
@@ -81,7 +81,7 @@ def train_effect_predictor(args, train_dataset, val_dataset):
 
 def test_effect_predictor(trainer, args, test_dataset, save_preds=False):
     test_preds, test_labels, _ = trainer.predict(test_dataset)
-    logging.info(f"effect predictor testing - test_preds_raw size: {test_preds_raw.shape}, test_preds_raw: {test_preds_raw[0]}, test_labels size: {test_labels.shape}, test_labels: {test_labels[0]}")
+    logging.info(f"effect predictor testing - test_preds_raw size: {test_preds.shape}, test_preds_raw: {test_preds[0]}, test_labels size: {test_labels.shape}, test_labels: {test_labels[0]}")
 
     # evalutate
     logging.info(evaluate(test_labels,test_preds))

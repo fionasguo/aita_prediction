@@ -16,11 +16,13 @@ from sklearn.metrics import classification_report
 
 from utils.data_processing import *
 from utils.utils import create_logger
+from utils.temperature_scaling import ModelWithTemperature
 
 
 MODEL = 'bert-base-uncased'
 DATADIR = '/nas/home/siyiguo/aita_prediction/data/fiona-aita-verdicts.csv'
 # DATADIR = '/nas/home/siyiguo/aita_prediction/data/test.csv'
+
 
 def train_propensity_predictor(args, train_dataset, val_dataset):
     logging.info(f'Start training propensity predictor... GPU: {torch.cuda.is_available()}')
@@ -48,6 +50,7 @@ def train_propensity_predictor(args, train_dataset, val_dataset):
 
     num_labels = 2
     model = AutoModelForSequenceClassification.from_pretrained(MODEL, num_labels=num_labels)
+    # model = AutoModelForSequenceClassification.from_pretrained(f"{args.output_dir}/propensity_model/best_model", num_labels=num_labels)
 
     trainer = Trainer(
         model=model,                              # the instantiated Transformers model to be trained
@@ -58,16 +61,21 @@ def train_propensity_predictor(args, train_dataset, val_dataset):
 
     trainer.train()
 
-    trainer.save_model(f"./{args.output_dir}/propensity_model/best_model")
+    trainer.save_model(f"{args.output_dir}/propensity_model/best_model")
 
     logging.info(f'Finished training propensity predictor. Time: {time.time()-start_time}')
 
-    return trainer
+    logging.info("temperature scaling")
+    # temperature scaling on val_dataset
+    scaled_model = ModelWithTemperature(trainer.model)
+    temperature = scaled_model.set_temperature(trainer,val_dataset)
+
+    return trainer, temperature
 
 
-def test_propensity_predictor(trainer, args, test_dataset, save_preds=False):
+def test_propensity_predictor(trainer, args, test_dataset, temperature=1.0, save_preds=False):
     test_preds_raw, test_labels , _ = trainer.predict(test_dataset)
-    test_preds_softmax = torch.nn.functional.softmax(torch.tensor(test_preds_raw)).numpy()
+    test_preds_softmax = torch.nn.functional.softmax(torch.tensor(test_preds_raw/temperature)).numpy()
     test_preds = np.argmax(test_preds_softmax, axis=-1)
 
     # pred performance report
@@ -116,7 +124,7 @@ if __name__ == '__main__':
     test_dataset = data_loader(test_data, tokenizer, mode=args.mode)
 
     ## Training
-    trainer = train_propensity_predictor(args, train_dataset, val_dataset)
+    trainer, temperature = train_propensity_predictor(args, train_dataset, val_dataset)
     
     ## Test
-    test_preds = test_propensity_predictor(trainer, args, test_dataset, save_preds=False)
+    test_preds = test_propensity_predictor(trainer, args, test_dataset, temperature, save_preds=False)

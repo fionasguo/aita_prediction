@@ -2,9 +2,6 @@ import numpy as np
 import logging
 
 
-# def kl_divergence(p, q):
-#     return np.sum(np.where(p != 0, p * np.log(p / q), 0))
-
 def doubly_robust(Y, outcome, propensity, treated):
     """
     compute the effect of changing from control (rand comment) to treated (top comment) on the probability of different aita verdits (4 classes)
@@ -21,6 +18,7 @@ def doubly_robust(Y, outcome, propensity, treated):
     logging.info(f"doubly robust size - Y: {Y.shape}, outcome: {outcome.shape}, propensity: {propensity.shape}, binary treated var: {treated.shape}")
     p1 = propensity[treated==1]
     p0 = propensity[treated==0]
+
     o1 = outcome[treated==1]
     o0 = outcome[treated==0]
 

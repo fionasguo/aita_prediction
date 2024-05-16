@@ -163,4 +163,4 @@ def evaluate(dataset: MFData,
         logging.debug('Domain classification confusion matrix:')
         logging.debug(conf_matrix)
 
-    return macro_f1, mf_preds_conf
+    return macro_f1, np.array(mf_preds_conf)

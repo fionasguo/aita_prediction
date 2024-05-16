@@ -63,8 +63,8 @@ def read_config(args,curr_dir):
     args['lambda_trans'] = 0.0
     args['lambda_rec'] = 0.5
     args['lambda_domain'] = 0.0
-    args['num_no_adv'] = 5
-    args['gamma'] = 0.1
+    args['num_no_adv'] = 3
+    args['gamma'] = 1
     args['device'] = "cuda:0" if torch.cuda.is_available() else "cpu"
     
     # read args in config file

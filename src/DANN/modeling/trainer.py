@@ -215,7 +215,7 @@ class DomainAdaptTrainer:
             self.model.module.update_is_adv(is_adv)
             self.model.module.update_lambda_domain(self.args['lambda_domain'])
 
-        logging.info(f"during training, data['input_ids]: {type(data['input_ids'])}, {data['input_ids'].shape}, att: {type(data['attention_mask'])},{data['attention_mask'].shape}")
+        # logging.info(f"during training, data['input_ids]: {type(data['input_ids'])}, {data['input_ids'].shape}, att: {type(data['attention_mask'])},{data['attention_mask'].shape}")
         outputs = self.model(data['input_ids'],
                              data['attention_mask'],
                              data['domain_labels'])
@@ -331,13 +331,13 @@ class DomainAdaptTrainer:
                      self.print_loss(loss_mf), self.print_loss(loss_domain),
                      self.print_loss(loss_rec), self.print_loss(loss_trans)))
 
-                # log cpu/gpu usage
-                device_info = get_gpu_memory_map()
-                logging.info('GPU/CPU usage (GB): %s' % device_info)
-
                 # # save temp model
                 # torch.save(self.model.module,
                 #            self.args['output_dir'] + '/model_in_training.pth')
+
+            # log cpu/gpu usage
+            device_info = get_gpu_memory_map()
+            logging.debug('GPU/CPU usage (GB): %s' % device_info)
 
             # test on validation set
             accu,_ = evaluate(self.datasets['val'],
@@ -474,30 +474,30 @@ class DomainAdaptTrainer:
                 loss.backward()
                 self.optimizer.step()
 
-                # print loss values
-                logging.debug(
-                    '\r epoch: %d, [iter: %d / all %d], total_loss: %.3f, total_s_loss: %.3f, total_t_loss: %.3f\ns_loss_mf: %.3f, s_loss_domain: %.3f, s_loss_rec: %.3f, s_loss_trans: %.3f\nt_loss_domain: %.3f, t_loss_rec: %.3f, t_loss_trans: %.3f'
-                    % (epoch, i + 1, self.len_dataloader,
-                       self.print_loss(loss), self.print_loss(s_loss),
-                       (s_train_batch_size / t_train_batch_size) *
-                       self.print_loss(t_loss), self.print_loss(s_loss_mf),
-                       self.print_loss(s_loss_domain),
-                       self.print_loss(s_loss_rec),
-                       self.print_loss(s_loss_trans),
-                       self.print_loss(t_loss_domain),
-                       self.print_loss(t_loss_rec),
-                       self.print_loss(t_loss_trans)))
+            # print loss values
+            logging.info(
+                '\r epoch: %d, [iter: %d / all %d], total_loss: %.3f, total_s_loss: %.3f, total_t_loss: %.3f\ns_loss_mf: %.3f, s_loss_domain: %.3f, s_loss_rec: %.3f, s_loss_trans: %.3f\nt_loss_domain: %.3f, t_loss_rec: %.3f, t_loss_trans: %.3f'
+                % (epoch, i + 1, self.len_dataloader,
+                    self.print_loss(loss), self.print_loss(s_loss),
+                    (s_train_batch_size / t_train_batch_size) *
+                    self.print_loss(t_loss), self.print_loss(s_loss_mf),
+                    self.print_loss(s_loss_domain),
+                    self.print_loss(s_loss_rec),
+                    self.print_loss(s_loss_trans),
+                    self.print_loss(t_loss_domain),
+                    self.print_loss(t_loss_rec),
+                    self.print_loss(t_loss_trans)))
 
-                del loss
+            del loss
 
-                # # save temp model
-                # torch.save(self.model.module,
-                #            self.args['output_dir'] + '/model_in_training.pth')
+            # # save temp model
+            # torch.save(self.model.module,
+            #            self.args['output_dir'] + '/model_in_training.pth')
 
-                # log cpu/gpu usage
-                device_info = get_gpu_memory_map()
-                logging.info('GPU/CPU usage (GB): %s' % device_info)
-
+            # log cpu/gpu usage
+            device_info = get_gpu_memory_map()
+            logging.info('GPU/CPU usage (GB): %s' % device_info)
+            
             # test on source validation set
             logging.info(f'\nepoch: {epoch}')
             accu_s,_ = evaluate(self.datasets['s_val'],
