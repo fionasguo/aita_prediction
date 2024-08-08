@@ -95,36 +95,36 @@ def test_propensity_predictor(trainer, args, test_dataset, temperature=1.0, save
 
 
 
-if __name__ == '__main__':
-    ## command args
-    parser = argparse.ArgumentParser(description='AITA Classifier.')
+# if __name__ == '__main__':
+#     ## command args
+#     parser = argparse.ArgumentParser(description='AITA Classifier.')
 
-    parser.add_argument('-m','--mode', type=str, default='concat_text', help='choose from concat_text, concat_embeddings, add_embeddings')
-    parser.add_argument('-o','--output_dir', type=str, default='./output', help='output dir to be written')
-    parser.add_argument('-l','--lr', type=float, default=0.00002, help='learning rate')
-    parser.add_argument('-e','--num_epoch', type=int, default=20, help='number of epochs to train for')
-    parser.add_argument('-b','--batch_size', type=int, default=128, help='mini-batch size')
-    parser.add_argument('-s','--seed', type=int, default=3, help='random seed')
+#     parser.add_argument('-m','--mode', type=str, default='concat_text', help='choose from concat_text, concat_embeddings, add_embeddings')
+#     parser.add_argument('-o','--output_dir', type=str, default='./output', help='output dir to be written')
+#     parser.add_argument('-l','--lr', type=float, default=0.00002, help='learning rate')
+#     parser.add_argument('-e','--num_epoch', type=int, default=20, help='number of epochs to train for')
+#     parser.add_argument('-b','--batch_size', type=int, default=128, help='mini-batch size')
+#     parser.add_argument('-s','--seed', type=int, default=3, help='random seed')
 
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
-    ## logger
-    create_logger()
+#     ## logger
+#     create_logger()
 
-    ## process data
-    logging.info('Start processing data...')
-    # train_dataset, val_dataset, test_dataset = load_data(DATADIR,args.mode,args.seed)
-    tokenizer = AutoTokenizer.from_pretrained(MODEL, local_files_only=True)
-    df = load_text_data(DATADIR)
-    train_data, val_data, test_data = train_val_test_split(df,seed=args.seed)
-    train_data, val_data, test_data = process_data_propensity_prediction(train_data,val_data,test_data)
+#     ## process data
+#     logging.info('Start processing data...')
+#     # train_dataset, val_dataset, test_dataset = load_data(DATADIR,args.mode,args.seed)
+#     tokenizer = AutoTokenizer.from_pretrained(MODEL, local_files_only=True)
+#     df = load_text_data(DATADIR)
+#     train_data, val_data, test_data = train_val_test_split(df,seed=args.seed)
+#     train_data, val_data, test_data = process_data_propensity_prediction(train_data,val_data,test_data)
 
-    train_dataset = data_loader(train_data, tokenizer, mode=args.mode)
-    val_dataset = data_loader(val_data, tokenizer, mode=args.mode)
-    test_dataset = data_loader(test_data, tokenizer, mode=args.mode)
+#     train_dataset = data_loader(train_data, tokenizer, mode=args.mode)
+#     val_dataset = data_loader(val_data, tokenizer, mode=args.mode)
+#     test_dataset = data_loader(test_data, tokenizer, mode=args.mode)
 
-    ## Training
-    trainer, temperature = train_propensity_predictor(args, train_dataset, val_dataset)
+#     ## Training
+#     trainer, temperature = train_propensity_predictor(args, train_dataset, val_dataset)
     
-    ## Test
-    test_preds = test_propensity_predictor(trainer, args, test_dataset, temperature, save_preds=False)
+#     ## Test
+#     test_preds = test_propensity_predictor(trainer, args, test_dataset, temperature, save_preds=False)

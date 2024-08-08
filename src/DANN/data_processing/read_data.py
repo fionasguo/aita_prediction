@@ -20,18 +20,19 @@ from .data_loader import MFData
 pd.options.mode.chained_assignment = None
 
 
-def create_Data(df, tokenizer, mode='concat_text'):
-    if mode == 'concat_text':
-        encodings = df.apply(lambda x: tokenizer(x['comment']+x['story'], truncation=True, max_length=512, padding="max_length"),axis=1).tolist()
+def create_Data(df, tokenizer):
+    # if mode == 'concat_text':
+    #     encodings = df.apply(lambda x: tokenizer(x['comment']+x['story'], truncation=True, max_length=512, padding="max_length"),axis=1).tolist()
 
-    elif mode == 'concat_embedding':
-        encodings = df.apply(lambda x: tokenizer(x['comment'],x['story'], truncation=True, max_length=512, padding="max_length"),axis=1).tolist()
+    # elif mode == 'concat_embedding':
+    #     encodings = df.apply(lambda x: tokenizer(x['comment'],x['story'], truncation=True, max_length=512, padding="max_length"),axis=1).tolist()
     
-    elif mode == 'story_only':
-        encodings = df['story'].apply(tokenizer, truncation=True, max_length=512, padding="max_length").tolist()
-
-    labels = df['label'].tolist()
-    domain_labels  = df['domain_idx'].tolist()
+    # elif mode == 'story_only':
+    #     encodings = df['story'].apply(tokenizer, truncation=True, max_length=512, padding="max_length").tolist()
+    
+    encodings = df['text'].apply(tokenizer, truncation=True, max_length=128, padding="max_length").tolist()
+    labels = df['y'].tolist()
+    domain_labels  = df['T'].tolist()
 
     dataset = MFData(encodings, labels, domain_labels)
 
@@ -44,7 +45,6 @@ def read_data(
         val: pd.DataFrame = None,
         test: pd.DataFrame = None,
         data_dir: str = None,
-        mode: str = 'concat_text',
         train_frac: float = 0.8,
         seed: int = 3
     ) -> Dict[str, MFData]:
@@ -81,25 +81,11 @@ def read_data(
         train = train.drop(val.index)
 
     # construct the source target train val test
-    s_train = train[['top_comment','story','top_verdict']]
-    s_train = s_train.rename(columns={'top_comment':'comment','top_verdict':'label'})
-    s_train['domain_idx'] = 0
-
-    t_train = train[['rand_comment','story','rand_verdict']]
-    t_train = t_train.rename(columns={'rand_comment':'comment','rand_verdict':'label'})
-    t_train['domain_idx'] = 1
-
-    s_val = val[['top_comment','story','top_verdict']]
-    s_val = s_val.rename(columns={'top_comment':'comment','top_verdict':'label'})
-    s_val['domain_idx'] = 0
-
-    t_val = val[['rand_comment','story','rand_verdict']]
-    t_val = t_val.rename(columns={'rand_comment':'comment','rand_verdict':'label'})
-    t_val['domain_idx'] = 1
-
-    N = len(test)
-    test = pd.concat([test[['top_comment','story','top_verdict']].rename(columns={'top_comment':'comment','top_verdict':'label'}),test[['rand_comment','story','rand_verdict']].rename(columns={'rand_comment':'comment','rand_verdict':'label'})],axis=0)
-    test['domain_idx'] = [0 for _ in range(N)] + [1 for _ in range(N)]
+    s_train = train.loc[train['T']==0,['text','T','X','y']]
+    t_train = train.loc[train['T']==1,['text','T','X','y']]
+    s_val = val.loc[val['T']==0,['text','T','X','y']]
+    t_val = val.loc[val['T']==1,['text','T','X','y']]
+    test = test[['text','T','X','y']]
 
     logging.info(f"s_train size: {s_train.shape}, t_train size: {t_train.shape}, s_val size: {s_val.shape}, t_val size: {t_val.shape}, test size: {test.shape}")
 
@@ -112,6 +98,6 @@ def read_data(
         'test': test
     }
     for k, v in datasets.items():
-        datasets[k] = create_Data(v, tokenizer, mode)
+        datasets[k] = create_Data(v, tokenizer)
 
     return datasets

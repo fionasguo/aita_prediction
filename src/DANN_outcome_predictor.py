@@ -55,7 +55,7 @@ def read_config(args,curr_dir):
     args['aflite'] = False
     args['train_domain'] = 'source'
     args['test_domain'] = 'target'
-    args['n_mf_classes'] = 4
+    args['n_mf_classes'] = 2
     args['n_domain_classes'] = 2
     args['alpha'] = 10
     args['beta'] = 0.25
@@ -193,58 +193,58 @@ def test_DANN_outcome_predictor(trainer,args,datasets,save_preds=False):
     return test_preds_softmax # return softmax vector len=4
 
 
-if __name__ == '__main__':
-    ## logger
-    create_logger()
+# if __name__ == '__main__':
+#     ## logger
+#     create_logger()
 
-    ## command args
-    args = {}
+#     ## command args
+#     args = {}
 
-    parser = argparse.ArgumentParser(description='Unsupervised Time Series Clustering.')
-    parser.add_argument('-m', '--mode', type=str, required=False, default='train_test', help='train,test,or train_test')
-    parser.add_argument( '-c', '--config_dir', type=str, required=False, default=None, help='configuration file dir that specifies hyperparameters etc')
-    parser.add_argument('-i', '--data_dir', type=str, required=True, help='input data directory')
-    parser.add_argument('-o', '--output_dir', type=str, required=False, default='./output', help='output directory')
-    parser.add_argument( '-t', '--trained_model', type=str, required=False, default=None, help='if testing, it is optional to provide a trained model weight dir')
-    command_args = parser.parse_args()
+#     parser = argparse.ArgumentParser(description='Unsupervised Time Series Clustering.')
+#     parser.add_argument('-m', '--mode', type=str, required=False, default='train_test', help='train,test,or train_test')
+#     parser.add_argument( '-c', '--config_dir', type=str, required=False, default=None, help='configuration file dir that specifies hyperparameters etc')
+#     parser.add_argument('-i', '--data_dir', type=str, required=True, help='input data directory')
+#     parser.add_argument('-o', '--output_dir', type=str, required=False, default='./output', help='output directory')
+#     parser.add_argument( '-t', '--trained_model', type=str, required=False, default=None, help='if testing, it is optional to provide a trained model weight dir')
+#     command_args = parser.parse_args()
 
-    # mode
-    mode = command_args.mode
+#     # mode
+#     mode = command_args.mode
 
-    # data dir
-    root_dir = os.path.dirname(os.path.realpath(__file__))
-    args['data_dir'] = os.path.join(root_dir, command_args.data_dir) if command_args.data_dir else None
-    args['config_dir'] = os.path.join(root_dir, command_args.config_dir) if command_args.config_dir else None
-    args['trained_model_dir'] = os.path.join(root_dir, command_args.trained_model) if command_args.trained_model else None
-    args['output_dir'] = os.path.join(root_dir, command_args.output_dir)
-    if not os.path.exists(os.path.join(root_dir, args['output_dir'])):
-        os.makedirs(os.path.join(root_dir, args['output_dir']))
+#     # data dir
+#     root_dir = os.path.dirname(os.path.realpath(__file__))
+#     args['data_dir'] = os.path.join(root_dir, command_args.data_dir) if command_args.data_dir else None
+#     args['config_dir'] = os.path.join(root_dir, command_args.config_dir) if command_args.config_dir else None
+#     args['trained_model_dir'] = os.path.join(root_dir, command_args.trained_model) if command_args.trained_model else None
+#     args['output_dir'] = os.path.join(root_dir, command_args.output_dir)
+#     if not os.path.exists(os.path.join(root_dir, args['output_dir'])):
+#         os.makedirs(os.path.join(root_dir, args['output_dir']))
 
-    root_dir = os.path.dirname(os.path.realpath(__file__))
-    args = read_config(args,root_dir)
+#     root_dir = os.path.dirname(os.path.realpath(__file__))
+#     args = read_config(args,root_dir)
 
-    ## process data
-    # set seed
-    set_seed(args['seed'])
+#     ## process data
+#     # set seed
+#     set_seed(args['seed'])
 
-    # load data
-    start_time = time.time()
-    logging.info('Start processing data...')
+#     # load data
+#     start_time = time.time()
+#     logging.info('Start processing data...')
 
-    # data should be in a csv file with these columns: 'text','domain' and MF_LABELS
-    datasets = read_data(
-        tokenizer,
-        data_dir=args['data_dir'],
-        mode='concat_text',
-        train_frac=0.8,
-        seed=args.seed
-    )
+#     # data should be in a csv file with these columns: 'text','domain' and MF_LABELS
+#     datasets = read_data(
+#         tokenizer,
+#         data_dir=args['data_dir'],
+#         mode='concat_text',
+#         train_frac=0.8,
+#         seed=args.seed
+#     )
 
-    logging.info(f'Finished processing data. Time: {time.time()-start_time}')
+#     logging.info(f'Finished processing data. Time: {time.time()-start_time}')
 
-    ## Training
-    trainer = train_DANN_outcome_predictor(args, datasets)
+#     ## Training
+#     trainer = train_DANN_outcome_predictor(args, datasets)
 
-    ## Test
-    test_preds = test_DANN_outcome_predictor(trainer, args, datasets)
+#     ## Test
+#     test_preds = test_DANN_outcome_predictor(trainer, args, datasets)
 

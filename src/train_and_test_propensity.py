@@ -22,15 +22,13 @@ from utils.utils import create_logger
 
 
 MODEL = 'bert-base-uncased'
-DATADIR = 'data/fiona-aita-verdicts.csv'
-# DATADIR = 'data/test.csv'
 
 
 if __name__ == "__main__":
     ## command args
-    parser = argparse.ArgumentParser(description='AITA Classifier.')
+    parser = argparse.ArgumentParser(description='Propensity Predictor.')
 
-    parser.add_argument('-m','--mode', type=str, default='concat_text', help='choose from concat_text, concat_embeddings, add_embeddings')
+    parser.add_argument('-i','--input_dir', type=str, required=True, help='input dir of data')
     parser.add_argument('-o','--output_dir', type=str, default='./output', help='output dir to be written')
     parser.add_argument('-l','--lr', type=float, default=0.00002, help='learning rate')
     parser.add_argument('-e','--num_epoch', type=int, default=20, help='number of epochs to train for')
@@ -42,28 +40,29 @@ if __name__ == "__main__":
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     args.fold = literal_eval(args.fold)
+    data_folder_dir = os.path.dirname(args.input_dir)
 
     # logger
-    create_logger()
+    create_logger(args.output_dir)
 
-    logging.info(f"Running 5-fold propensity predictor training/prediction. seed={args.seed}")
+    logging.info(f"Data: {args.input_dir}. Running 5-fold propensity predictor training/prediction. seed={args.seed}")
     logging.info(args)
 
     # load and preprocessing text data
     tokenizer = AutoTokenizer.from_pretrained(MODEL) #, local_files_only=True)
-    df = load_text_data(DATADIR)
+    df = load_text_data(args.input_dir)
     # split into train and test
     train_data, test_data = train_test_split(df,tr_frac=0.8,seed=args.seed)
     logging.info(f'sizes of train data: {train_data.shape}, test data: {test_data.shape}')
 
     # on the training data, run 5-fold outcome & propensity train/inference
     # the results double in size because for each story there are top and random comments
-    try:
-        train_data_propensity = np.loadtxt(f'data/seed_{args.seed}/train_propensity.csv',delimiter=',')
-        logging.info(f"loading saved train data propensity file. prev propensity size={train_data_propensity.shape}")
-    except:
-        train_data_propensity = np.empty((0,2))
-        logging.info("initiating new train data propensity")
+    # try:
+    #     train_data_propensity = np.loadtxt(f'{data_folder_dir}/seed_{args.seed}/train_propensity.csv',delimiter=',')
+    #     logging.info(f"loading saved train data propensity file. prev propensity size={train_data_propensity.shape}")
+    # except:
+    train_data_propensity = np.empty((0,2))
+    logging.info("initiating new train data propensity")
 
     n_folds = 5
     train_data = train_data.sample(frac=1,random_state=args.seed) # shuffle
@@ -87,9 +86,9 @@ if __name__ == "__main__":
         # propensity
         tmp_tr, tmp_val, tmp_te = process_data_propensity_prediction(train_subset,val_subset,test_subset)
         logging.info(f'propensity data processed: tr: {tmp_tr.shape}, val: {tmp_val.shape}, te: {tmp_te.shape}')
-        tmp_tr_dataset = data_loader(tmp_tr, tokenizer, mode='concat_text')
-        tmp_val_dataset = data_loader(tmp_val, tokenizer, mode='concat_text')
-        tmp_te_dataset = data_loader(tmp_te, tokenizer, mode='concat_text')
+        tmp_tr_dataset = data_loader(tmp_tr, tokenizer)
+        tmp_val_dataset = data_loader(tmp_val, tokenizer)
+        tmp_te_dataset = data_loader(tmp_te, tokenizer)
 
         trainer,temperature = train_propensity_predictor(args, tmp_tr_dataset, tmp_val_dataset)
         fold_propensity = test_propensity_predictor(trainer,args,tmp_te_dataset,temperature,save_preds=False)
@@ -97,7 +96,10 @@ if __name__ == "__main__":
         logging.info(f"fold propensity size: {fold_propensity.shape}")
 
         train_data_propensity = np.vstack((train_data_propensity,fold_propensity))
-        np.savetxt(f'data/seed_{args.seed}/train_propensity.csv',train_data_propensity,delimiter=',')
+        
+        if not os.path.exists(f'{data_folder_dir}/seed_{args.seed}'):
+            os.makedirs(f'{data_folder_dir}/seed_{args.seed}')
+        np.savetxt(f'{data_folder_dir}/seed_{args.seed}/train_propensity.csv',train_data_propensity,delimiter=',')
 
         logging.info(f"fold propensity saved - size={train_data_propensity.shape}")
 

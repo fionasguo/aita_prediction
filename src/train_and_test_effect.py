@@ -1,32 +1,19 @@
-"""
-Train the model to predict the causal effect where text is the intervention.
-
-1. run the outcome predictor with 5-fold splitting and predict the outcome for all training data
-2. run the propensity predictor with 5-fold splitting and predict the outcome for all training data
-3. compute the effect using doubly robust
-4. train the effect_predictor using story as input, and the effect from dobuly robust as the outcome
-"""
-
+import os
 import argparse
 import pandas as pd
 import numpy as np
 import logging
 
-from effect_predictor import train_effect_predictor,test_effect_predictor
 from utils.data_processing import *
-from utils.doubly_robust import doubly_robust
+from utils.compute_effect import *
 from utils.utils import create_logger
-
-
-MODEL = 'bert-base-uncased'
-DATADIR = 'data/fiona-aita-verdicts.csv'
-# DATADIR = 'data/test.csv'
-
+from evaluate import evaluate
 
 if __name__ == "__main__":
     ## command args
     parser = argparse.ArgumentParser(description='AITA Classifier.')
 
+    parser.add_argument('-i','--input_dir', type=str, required=True, help='input dir of data')
     parser.add_argument('-o','--output_dir', type=str, default='./output', help='output dir to be written')
     parser.add_argument('-l','--lr', type=float, default=0.00002, help='learning rate')
     parser.add_argument('-e','--num_epoch', type=int, default=20, help='number of epochs to train for')
@@ -34,62 +21,75 @@ if __name__ == "__main__":
     parser.add_argument('-s','--seed', type=int, default=3, help='random seed')
     parser.add_argument('--model', type=str, default='DR', help='DR for doubly robust or none for simple subtraction between predicted outcomes for treated and control')
     parser.add_argument('--outcome_model', type=str, default='bert', help='bert or DANN')
-
+    parser.add_argument('--cov_dim', type=int, required=True, help='number of dimensions of covariates X')
+    parser.add_argument('--ite', type=bool, required=False, default=False, help="wheter to compute Individual Treatment Effects")
+    
     args = parser.parse_args()
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+    data_folder_dir = os.path.dirname(args.input_dir)
 
     # logger
-    create_logger()
+    create_logger(args.output_dir)
 
-    logging.info(f"Training Effect prector with {args.model} model, potential outcome predicted by {args.outcome_model}, seed={args.seed}")
+    logging.info(f"Data: {args.input_dir}. Training Effect prector with {args.model} model, potential outcome predicted by {args.outcome_model}, seed={args.seed}")
     logging.info(args)
 
     # load and preprocessing text data
-    tokenizer = AutoTokenizer.from_pretrained(MODEL, local_files_only=True)
-    df = load_text_data(DATADIR)
-    # split into train and test
-    train_data, test_data = train_test_split(df,tr_frac=0.8,seed=args.seed)
-    logging.info(f'sizes of train data: {train_data.shape}, test data: {test_data.shape}')
+    df = load_text_data(args.input_dir)
+    df = df.set_index('id')
 
-    n_folds = 5
-    train_data = train_data.sample(frac=1,random_state=args.seed) # shuffle
-    N_train = len(train_data)
-    N_fold = int(N_train/n_folds)
-    logging.info(f"number of folds: {n_folds}, size of each fold: {N_fold}")
+    # read outcome, id, propensity
+    train_data_outcome = np.loadtxt(f'{data_folder_dir}/seed_{args.seed}/train_{args.outcome_model}_outcome.csv',delimiter=',') # N*1
+    train_data_id = np.loadtxt(f'{data_folder_dir}/seed_{args.seed}/train_{args.outcome_model}_id.csv',delimiter=',') # N*1
+    logging.info(f"loaded train_data outcome shape={train_data_outcome.shape}, id shape={train_data_id.shape}")
 
-    # read outcome, treated, propensity
-    train_data_outcome = np.loadtxt(f'data/seed_{args.seed}/train_{args.outcome_model}_outcome.csv',delimiter=',')
-    treated = np.loadtxt(f'data/seed_{args.seed}/train_{args.outcome_model}_treated.csv',delimiter=',')
+    train_data = df.loc[train_data_id,]
+    test_data = df.drop(train_data.index)
+
+    if args.cov_dim == 2:
+        covariates = train_data['X'].values
+    else:
+        # one-hot encoding
+        covariates = np.array(train_data['X'].apply(lambda x: [1 if x==i else 0 for i in range(args.cov_dim)]).tolist())
+
+    # evaluate
+    logging.info(f"\nComputing Oracle CATE:")
+    cate_oracle = CATE_naive(train_data['y'].values,train_data['T'].values,covariates)
 
     if args.model == 'DR':
-        train_data_propensity = np.loadtxt(f'data/seed_{args.seed}/train_propensity.csv',delimiter=',')
-        # effect using doubly robust 
-        Y = train_data['top_verdict'].apply(lambda x: [1 if x==i else 0 for i in range(4)]).tolist()
-        Y = np.array(Y)
-        logging.info(f"Y size: {Y.shape}")
-        np.savetxt(f'data/seed_{args.seed}/train_Y.csv',Y,delimiter=',')
+        train_data_propensity = np.loadtxt(f'{data_folder_dir}/seed_{args.seed}/train_propensity.csv',delimiter=',') # N*2
+        # train_data_propensity = estimate_propensities(train_data['T'].tolist(),train_data['X'].tolist()) # for Amazon review data
+        logging.info(f"loaded train_data propensity shape={train_data_propensity.shape}")
 
-        train_data['effect'] = doubly_robust(Y, train_data_outcome, train_data_propensity, treated).tolist() # shape: N_train * 4
-        logging.info(f"added effects train data: {train_data.shape}")
+        cate = CATE_doubly_robust(train_data['y'].values, train_data_outcome, train_data_propensity, train_data['T'].values, covariates)
+        cate_oracle_, cate = [cate_oracle[key] for key in sorted(cate_oracle.keys())], [cate[key] for key in sorted(cate.keys())]
+        logging.info(f"Evaluate DR CATE: delta={np.mean(cate)-np.mean(cate_oracle_)}, {evaluate(cate_oracle_,cate)}")
+        
+        cate = CATE_IPW(train_data['y'].values, train_data_outcome, train_data_propensity, train_data['T'].values, covariates)
+        cate_oracle_, cate = [cate_oracle[key] for key in sorted(cate_oracle.keys())], [cate[key] for key in sorted(cate.keys())]
+        logging.info(f"Evaluate IPW CATE: delta={np.mean(cate)-np.mean(cate_oracle_)}, {evaluate(cate_oracle_,cate)}")
+        
+        if args.ite:
+            logging.info("\nComputing ITE:")
+            ite_oracle = ITE_naive(train_data['y'].values,train_data['T'].values,train_data['pair_id'].values)
+            
+            ite = ITE_doubly_robust(train_data['y'].values, train_data_outcome, train_data_propensity, train_data['T'].values, train_data['pair_id'].values)
+            logging.info(f"Evaluate DR ITE: {evaluate(ite_oracle,ite)}")
+
+            ite = ITE_IPW(train_data['y'].values, train_data_outcome, train_data_propensity, train_data['T'].values, train_data['pair_id'].values)
+            logging.info(f"Evaluate IPW ITE: {evaluate(ite_oracle,ite)}")
+
     elif args.model == 'none':
-        treated_train_data_outcome = train_data_outcome[treated==1]
-        control_train_data_outcome = train_data_outcome[treated==0]
-        train_data['effect'] = (treated_train_data_outcome - control_train_data_outcome).tolist()
+        cate = CATE_naive(train_data_outcome,train_data['T'].values,covariates)
+        cate_oracle, cate = [cate_oracle[key] for key in sorted(cate_oracle.keys())], [cate[key] for key in sorted(cate.keys())]
+        logging.info(f"Evaluate CATE: delta={np.mean(cate)-np.mean(cate_oracle)}, {evaluate(cate_oracle,cate)}")
 
-    # train the effect predictor
-    val_data = train_data.sample(frac=0.2,random_state=args.seed)
-    train_data = train_data.drop(val_data.index)
+        if args.ite:
+            logging.info("\nComputing ITE:")
+            ite = ITE_naive(train_data_outcome,train_data['T'].values,train_data['pair_id'].values)
+            ite_oracle = ITE_naive(train_data['y'].values,train_data['T'].values,train_data['pair_id'].values)
+            logging.info(f"Evaluate ITE: {evaluate(ite_oracle,ite)}")
 
-    train_dataset, val_dataset, test_dataset = process_data_effect_prediction(train_data,val_data,test_data)
-    train_dataset = data_loader(train_dataset, tokenizer, mode='story_only')
-    val_dataset = data_loader(val_dataset, tokenizer, mode='story_only')
-    test_dataset = data_loader(test_dataset, tokenizer, mode='story_only')
 
-    logging.info('training effect predictor')
 
-    trainer = train_effect_predictor(args,train_dataset,val_dataset)
-    test_data_effects = test_effect_predictor(trainer,args,test_dataset)
-    test_data['effect_pred'] = test_data_effects.tolist()
-    # test_data.to_csv(args.output_dir+'/test_data_prediction.csv',index=False)
-
-    logging.info('Finished training effect predictor')
-    

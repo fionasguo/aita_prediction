@@ -19,7 +19,7 @@ from DANN_outcome_predictor import train_DANN_outcome_predictor,test_DANN_outcom
 from propensity_predictor import train_propensity_predictor,test_propensity_predictor
 from effect_predictor import train_effect_predictor,test_effect_predictor
 from utils.data_processing import *
-from utils.doubly_robust import doubly_robust
+from utils.compute_effect import doubly_robust
 from utils.utils import create_logger
 
 

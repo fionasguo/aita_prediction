@@ -271,9 +271,7 @@ class DomainAdaptTrainer:
         self.train_dataloader = DataLoader(dataset=self.datasets['train'],
                                            batch_size=self.args['batch_size'],
                                            shuffle=True,
-                                           drop_last=True,
-                                           num_workers=4,
-                                           worker_init_fn=worker_init_fn)
+                                           drop_last=True)
 
         # loss fn
         # self.loss_fn_mf = torch.nn.BCEWithLogitsLoss().to(self.args['device'])
@@ -377,6 +375,7 @@ class DomainAdaptTrainer:
         # set up dataloader
         # first calculate batch size for source and target domains
         s_train_batch_size, t_train_batch_size = self.compute_batch_size()
+        # logging.info(f"s_train_batch_size={s_train_batch_size}, t_train_batch_size={s_train_batch_size}")
 
         # set worker init fn
 
@@ -389,19 +388,15 @@ class DomainAdaptTrainer:
             dataset=self.datasets['s_train'],
             batch_size=s_train_batch_size,
             shuffle=True,
-            drop_last=True,
-            num_workers=4,
-            worker_init_fn=worker_init_fn)
+            drop_last=True)
         self.dataloaders['t_train'] = DataLoader(
             dataset=self.datasets['t_train'],
             batch_size=t_train_batch_size,
             shuffle=True,
-            drop_last=True,
-            num_workers=4,
-            worker_init_fn=worker_init_fn)
+            drop_last=True)
         self.len_dataloader = min(len(self.dataloaders['s_train']),
                                   len(self.dataloaders['t_train']))
-
+        
         # loss fn
         if self.args['weighted_loss']:
             # self.loss_fn_mf = torch.nn.BCEWithLogitsLoss(

@@ -27,15 +27,14 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 MODEL = 'bert-base-uncased'
-DATADIR = 'data/fiona-aita-verdicts.csv'
-# DATADIR = 'data/test.csv'
 
 
 if __name__ == "__main__":
     ## command args
-    parser = argparse.ArgumentParser(description='AITA Classifier.')
+    parser = argparse.ArgumentParser(description='Potential Outcome Predictor.')
 
-    parser.add_argument('-m','--mode', type=str, default='concat_embedding', help='choose from concat_text, concat_embeddings, add_embeddings')
+    # parser.add_argument('-m','--mode', type=str, default='concat_embedding', help='choose from concat_text, concat_embeddings, add_embeddings')
+    parser.add_argument('-i','--input_dir', type=str, required=True, help='input dir of data')
     parser.add_argument('-o','--output_dir', type=str, default='./output', help='output dir to be written')
     parser.add_argument('-c','--config_dir', type=str, default=None, help='path to the config file')
     parser.add_argument('-l','--lr', type=float, default=0.00002, help='learning rate')
@@ -49,31 +48,32 @@ if __name__ == "__main__":
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     args.fold = literal_eval(args.fold)
+    data_folder_dir = os.path.dirname(args.input_dir)
 
     # logger
-    create_logger()
+    create_logger(args.output_dir)
 
-    logging.info(f"Running 5-fold {args.model} outcome predictor training/prediction. seed={args.seed}")
+    logging.info(f"Data: {args.input_dir}. Running 5-fold {args.model} outcome predictor training/prediction. seed={args.seed}")
     logging.info(args)
 
     # load and preprocessing text data
     tokenizer = AutoTokenizer.from_pretrained(MODEL) #, local_files_only=True)
-    df = load_text_data(DATADIR)
+    df = load_text_data(args.input_dir)
     # split into train and test
     train_data, test_data = train_test_split(df,tr_frac=0.8,seed=args.seed)
     logging.info(f'sizes of train data: {train_data.shape}, test data: {test_data.shape}')
 
     # on the training data, run 5-fold outcome & propensity train/inference
     # the results double in size because for each story there are top and random comments
-    try:
-        train_data_outcome = np.loadtxt(f'data/seed_{args.seed}/train_{args.model}_outcome.csv',delimiter=',')
-        treated = np.loadtxt(f'data/seed_{args.seed}/train_{args.model}_treated.csv',delimiter=',')
-        treated = treated.reshape(-1,1)
-        logging.info(f"loading saved train data outcome and treated file. prev outcome size={train_data_outcome.shape}, prev treated size={treated.size}")
-    except:
-        train_data_outcome = np.empty((0,4))
-        treated = np.empty((0,1))
-        logging.info("initiating new train data outcome and treated")
+    # try:
+    #     train_data_outcome = np.loadtxt(f'{data_folder_dir}/seed_{args.seed}/train_{args.model}_outcome.csv',delimiter=',')
+    #     train_data_id = np.loadtxt(f'{data_folder_dir}/seed_{args.seed}/train_{args.model}_id.csv',delimiter=',')
+    #     # train_data_id = train_data_id.reshape(-1,1)
+    #     logging.info(f"loading saved train data outcome and id file. prev outcome size={train_data_outcome.shape}, prev train data id size={train_data_id.shape}")
+    # except:
+    train_data_outcome = np.empty((0,))
+    train_data_id = np.empty((0,))
+    logging.info("initiating new train data outcome and id")
 
     n_folds = 5
     train_data = train_data.sample(frac=1,random_state=args.seed) # shuffle
@@ -99,13 +99,13 @@ if __name__ == "__main__":
             logging.info("outcome model: vanilla bert")
             tmp_tr, tmp_val, tmp_te = process_data_bert_outcome_prediction(train_subset,val_subset,test_subset)
             logging.info(f'outcome data processed: tr: {tmp_tr.shape}, val: {tmp_val.shape}, te: {tmp_te.shape}')
-            tmp_tr_dataset = data_loader(tmp_tr, tokenizer, args.mode)
-            tmp_val_dataset = data_loader(tmp_val, tokenizer, args.mode)
-            tmp_te_dataset = data_loader(tmp_te, tokenizer, args.mode)
+            tmp_tr_dataset = data_loader(tmp_tr, tokenizer) #, args.mode)
+            tmp_val_dataset = data_loader(tmp_val, tokenizer) #, args.mode)
+            tmp_te_dataset = data_loader(tmp_te, tokenizer) #, args.mode)
 
             trainer = train_bert_outcome_predictor(args, tmp_tr_dataset, tmp_val_dataset)
             fold_outcome = test_bert_outcome_predictor(trainer, args, tmp_te_dataset, save_preds=False)
-
+            
         # # outcome prediction - DANN
         elif args.model == 'DANN':
             logging.info("outcome model: DANN")
@@ -114,7 +114,6 @@ if __name__ == "__main__":
                 train=train_subset,
                 val=val_subset,
                 test=test_subset,
-                mode=args.mode,
                 train_frac=0.8,
                 seed=args.seed
                 )
@@ -123,15 +122,19 @@ if __name__ == "__main__":
         else:
             raise ValueError("Please specify model as either bert or DANN")
 
+        fold_outcome = fold_outcome[:,1]
         logging.info(f"fold outcome size: {fold_outcome.shape}")
 
         #train_data_outcome.append(fold_outcome)
-        train_data_outcome = np.vstack((train_data_outcome,fold_outcome))
-        treated = np.vstack((treated,np.array([1 for _ in range(len(fold_outcome)//2)] + [0 for _ in range(len(fold_outcome)//2)]).reshape(-1,1)))
-        np.savetxt(f'data/seed_{args.seed}/train_{args.model}_outcome.csv',train_data_outcome,delimiter=',')
-        np.savetxt(f'data/seed_{args.seed}/train_{args.model}_treated.csv',treated,delimiter=',')
+        train_data_outcome = np.hstack((train_data_outcome,fold_outcome))
+        train_data_id = np.hstack((train_data_id,test_subset['id'].values))
+        
+        if not os.path.exists(f'{data_folder_dir}/seed_{args.seed}'):
+            os.makedirs(f'{data_folder_dir}/seed_{args.seed}')
+        np.savetxt(f'{data_folder_dir}/seed_{args.seed}/train_{args.model}_outcome.csv',train_data_outcome,delimiter=',')
+        np.savetxt(f'{data_folder_dir}/seed_{args.seed}/train_{args.model}_id.csv',train_data_id,delimiter=',')
 
-        logging.info(f"fold outcome saved - outcome size={train_data_outcome.shape}, binary treated var size={len(treated)}")
+        logging.info(f"fold outcome saved - outcome size={train_data_outcome.shape}, train_data id size={len(train_data_id)}")
 
         del trainer.model
         del trainer
