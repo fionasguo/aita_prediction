@@ -26,7 +26,7 @@ def train_bert_outcome_predictor(args, train_dataset, val_dataset):
     logging.info('Start training outcome predictor...')
 
     training_args = TrainingArguments(
-        output_dir=args.output_dir+'/outcome_bert',                        # output directory
+        output_dir=args.output_dir,                        # output directory
         num_train_epochs=args.n_epoch,                  # total number of training epochs
         per_device_train_batch_size=args.batch_size,       # batch size per device during training
         per_device_eval_batch_size=args.batch_size,        # batch size for evaluation
@@ -56,7 +56,7 @@ def train_bert_outcome_predictor(args, train_dataset, val_dataset):
 
     trainer.train()
 
-    trainer.save_model(f"{args.output_dir}/outcome_bert/best_model")
+    trainer.save_model(f"{args.output_dir}/best_model")
 
     logging.info('Finished training outcome predictor.')
 
@@ -77,7 +77,7 @@ def test_bert_outcome_predictor(trainer,args,test_dataset,save_preds=False):
     logging.info(report_rand)
 
     if save_preds:
-        with open(args.output_dir+'/outcome_bert/outcome_preds.txt','w+') as f:
+        with open(args.output_dir+'/outcome_preds.txt','w+') as f:
             for i in test_preds:
                 f.write(str(i)+'\n')
     

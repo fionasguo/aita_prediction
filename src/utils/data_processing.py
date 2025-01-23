@@ -121,7 +121,7 @@ def data_loader(df, tokenizer): #, mode='concat_text'):
     #     encodings = tokenizer(df['story'].tolist(), truncation=True, max_length=512, padding="max_length")
     #     labels = df['label'].tolist()
 
-    encodings = tokenizer(df['text'].tolist(), truncation=True, max_length=128, padding="max_length")
+    encodings = tokenizer(df['text'].tolist(), truncation=True, max_length=200, padding="max_length")
     dataset = AITAData(encodings, df['label'].tolist(), df['T'].tolist())
 
     return dataset

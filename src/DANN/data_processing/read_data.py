@@ -30,7 +30,7 @@ def create_Data(df, tokenizer):
     # elif mode == 'story_only':
     #     encodings = df['story'].apply(tokenizer, truncation=True, max_length=512, padding="max_length").tolist()
     
-    encodings = df['text'].apply(tokenizer, truncation=True, max_length=128, padding="max_length").tolist()
+    encodings = df['text'].apply(tokenizer, truncation=True, max_length=200, padding="max_length").tolist()
     labels = df['y'].tolist()
     domain_labels  = df['T'].tolist()
 
