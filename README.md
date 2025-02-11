@@ -2,8 +2,6 @@
 
 This is a novel framework for texual intervention effect estimation using LLMs for counterfactual generation **even with missing observations** with domain adaptation.
 
-Our paper: https://arxiv.org/abs/2410.21474
-
 We are targeting interesting causal questions e.g.:
   * Would toning down the aggressiveness in a post increase or decrease people’s engagement (comment, repost)?
   
@@ -16,13 +14,3 @@ To deal with missing obesrvations, we either utilize the power of LLMs to synthe
 Next we build NN predictors (e.g. BERT based) for potential outcomes, and we adapt the domain adaptation neural network (DANN) framework to mitigate the effect estimation biases.
 
 ![image](https://github.com/user-attachments/assets/9541f8fd-eb54-4105-b2ac-43575267ad97)
-
-Citation:
-```
-@article{guo2024estimating,
-  title={Estimating Causal Effects of Text Interventions Leveraging LLMs},
-  author={Guo, Siyi and Marmarelis, Myrl G and Morstatter, Fred and Lerman, Kristina},
-  journal={arXiv preprint arXiv:2410.21474},
-  year={2024}
-}
-```
