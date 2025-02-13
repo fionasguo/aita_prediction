@@ -26,7 +26,7 @@ class ModelWithTemperature(nn.Module):
         temperature = self.temperature.unsqueeze(1).expand(logits.size(0), logits.size(1))
         return logits / temperature
 
-    # This function probably should live outside of this class, but whatever
+
     def set_temperature(self, trainer, val_dataset):
         """
         Tune the tempearature of the model (using the validation set).
@@ -49,6 +49,7 @@ class ModelWithTemperature(nn.Module):
 
         # Next: optimize the temperature w.r.t. NLL
         optimizer = optim.LBFGS([self.temperature], lr=0.01, max_iter=50)
+        
 
         def eval():
             optimizer.zero_grad()
